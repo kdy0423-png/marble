@@ -35,6 +35,7 @@
             overflow: auto;
         }
 
+        /* 10x6 보드판 (정확히 28칸 레이아웃) */
         .board-container {
             display: grid;
             grid-template-columns: repeat(10, 115px);
@@ -106,6 +107,7 @@
         }
         .token:hover::after { opacity: 1; }
 
+        /* 중앙 패널 */
         .center-panel {
             grid-column: 2 / 10;
             grid-row: 2 / 6;
@@ -225,6 +227,7 @@
             box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
         }
 
+        /* 룰렛 UI */
         .roulette-view {
             display: none;
             width: 100%;
@@ -328,6 +331,7 @@
             border-radius: 6px;
         }
 
+        /* 방 리셋 버튼 */
         .reset-room-btn {
             position: absolute;
             top: 15px;
@@ -342,6 +346,7 @@
         }
         .reset-room-btn:hover { background-color: rgba(255,255,255,0.05); color: #fff; }
 
+        /* 설정 모달 */
         .setup-modal {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -580,6 +585,7 @@
             const diceEl = document.getElementById('diceResult');
             const btnEl = document.getElementById('rollBtn');
             
+            // 핵심 수정: 로컬에서 롤링 중이 아닐 때만 덮어쓰도록 처리
             if (!isLocalRolling) {
                 if (diceEl) diceEl.innerText = data.lastDice || "🎲";
                 if (document.getElementById('penaltyDesc')) document.getElementById('penaltyDesc').innerHTML = data.lastDesc || "주사위를 돌려주세요!";
@@ -606,6 +612,7 @@
                 }
             }
 
+            // 모든 토큰을 한번 숨겼다가 활성화된 플레이어만 다시 노출하여 동기화
             for(let i=1; i<=4; i++) {
                 const tEl = document.getElementById(`token-${i}`);
                 if(tEl) tEl.style.display = 'none';
@@ -620,11 +627,12 @@
                 }
             });
 
-            setTimeout(() => {
+            // 주사위를 내가 굴리는 중이 아닐 때만 UI 동기화
+            if (!isLocalRolling) {
                 moveTokensToCells();
                 updateTurnUI();
-                drawRoulette();
-            }, 50);
+            }
+            drawRoulette();
         });
 
         window.startGame = function() {
@@ -697,7 +705,7 @@
                         const rouletteItemsInput = document.getElementById("rouletteItems");
                         const currentItems = rouletteItemsInput ? rouletteItemsInput.value : "마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷";
 
-                        // 참조 무결성을 위해 players 내부 데이터를 새로 주입한 후 set 브로드캐스팅 진행
+                        // 로컬 데이터 선반영
                         players[currentTurn].pos = nextPos;
 
                         const updateData = {
@@ -713,9 +721,15 @@
                             }
                         };
 
+                        // 핵심 수정: Firebase 송신 직전에 로컬 락을 풀지 않고, 데이터 전송이 성공(또는 직전) 시점에 해제
                         set(gameRef, updateData)
                             .then(() => {
                                 isLocalRolling = false;
+                                // 굴린 사람의 화면에서도 최종 결과를 강제로 다시 그리도록 유도
+                                if (diceEl) diceEl.innerText = `🎲 ${dice}`;
+                                if (document.getElementById('penaltyDesc')) document.getElementById('penaltyDesc').innerHTML = finalDesc;
+                                moveTokensToCells();
+                                updateTurnUI();
                                 if (btn) btn.disabled = false;
                             })
                             .catch((error) => {
