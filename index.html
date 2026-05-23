@@ -638,75 +638,79 @@
         };
 
         window.rollDice = function() {
-            if (isLocalRolling) return;
-            
-            const btn = document.getElementById('rollBtn');
-            const diceEl = document.getElementById('diceResult');
-            
-            isLocalRolling = true;
-            if (btn) btn.disabled = true;
-            if (diceEl) diceEl.classList.add('dice-rolling');
+    if (isLocalRolling) return;
+    
+    const btn = document.getElementById('rollBtn');
+    const diceEl = document.getElementById('diceResult');
+    
+    isLocalRolling = true;
+    if (btn) btn.disabled = true;
+    if (diceEl) diceEl.classList.add('dice-rolling');
 
-            let counter = 0;
-            const interval = setInterval(() => {
-                if (diceEl) diceEl.innerText = `🎲 ${Math.floor(Math.random() * 6) + 1}`;
-                counter++;
+    let counter = 0;
+    const interval = setInterval(() => {
+        if (diceEl) diceEl.innerText = `🎲 ${Math.floor(Math.random() * 6) + 1}`;
+        counter++;
+        
+        if(counter > 12) { 
+            clearInterval(interval);
+            if (diceEl) diceEl.classList.remove('dice-rolling');
+            
+            try {
+                const dice = Math.floor(Math.random() * 6) + 1;
+                const player = players[currentTurn];
                 
-                if(counter > 12) { 
-                    clearInterval(interval);
-                    if (diceEl) diceEl.classList.remove('dice-rolling');
-                    
-                    try {
-                        const dice = Math.floor(Math.random() * 6) + 1;
-                        const player = players[currentTurn];
-                        
-                        player.pos = (player.pos + dice) % boardData.length;
-                        const cellInfo = boardData[player.pos];
-                        let displayDesc = cellInfo.desc;
+                // 1. 실제 말이 이동할 다음 위치 계산
+                player.pos = (player.pos + dice) % boardData.length;
+                const cellInfo = boardData[player.pos];
+                let displayDesc = cellInfo.desc;
 
-                        if (cellInfo.type === 'key') {
-                            displayDesc = goldKeys[Math.floor(Math.random() * goldKeys.length)];
-                        }
+                if (cellInfo.type === 'key') {
+                    displayDesc = goldKeys[Math.floor(Math.random() * goldKeys.length)];
+                }
 
-                        const finalDesc = `<strong style="color:${player.color}">${player.name}</strong>님이 <strong style="color:#ffffff;">[${cellInfo.title}]</strong>에 도착!<br>${displayDesc}`;
-                        const nextTurn = (currentTurn + 1) % players.length;
+                // 2. [수정 포인트] START(0번 칸)에 오면 숫자가 아닌 'START'로, 그 외엔 실제 위치 번호(player.pos)와 완벽 일치시킴
+                const cellDisplayTitle = (player.pos === 0) ? "START" : `칸 ${player.pos}`;
 
-                        const rouletteItemsInput = document.getElementById("rouletteItems");
-                        const currentItems = rouletteItemsInput ? rouletteItemsInput.value : "마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷";
+                // 3. 로그 메시지 조립
+                const finalDesc = `<strong style="color:${player.color}">${player.name}</strong>님이 <strong style="color:#ffffff;">[${cellDisplayTitle} : ${cellInfo.title}]</strong>에 도착!<br>${displayDesc}`;
+                const nextTurn = (currentTurn + 1) % players.length;
 
-                        const updateData = {
-                            players: players,
-                            currentTurn: nextTurn,
-                            lastDice: `🎲 ${dice}`,
-                            lastDesc: finalDesc,
-                            roulette: {
-                                items: currentItems,
-                                result: "결과 대기 중",
-                                show: cellInfo.title === "돌려돌려 돌림판",
-                                deg: 0
-                            }
-                        };
+                const rouletteItemsInput = document.getElementById("rouletteItems");
+                const currentItems = rouletteItemsInput ? rouletteItemsInput.value : "마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷";
 
-                        update(gameRef, updateData)
-                            .then(() => {
-                                isLocalRolling = false;
-                                if (btn) btn.disabled = false;
-                            })
-                            .catch((error) => {
-                                console.error("Firebase 업데이트 실패:", error);
-                                isLocalRolling = false;
-                                if (btn) btn.disabled = false;
-                            });
+                const updateData = {
+                    players: players,
+                    currentTurn: nextTurn,
+                    lastDice: `🎲 ${dice}`,
+                    lastDesc: finalDesc,
+                    roulette: {
+                        items: currentItems,
+                        result: "결과 대기 중",
+                        show: cellInfo.title === "돌려돌려 돌림판",
+                        deg: 0
+                    }
+                };
 
-                    } catch (err) {
-                        console.error("주사위 연산 오류 강제 구출:", err);
+                update(gameRef, updateData)
+                    .then(() => {
                         isLocalRolling = false;
                         if (btn) btn.disabled = false;
-                    }
-                }
-            }, 60);
-        };
+                    })
+                    .catch((error) => {
+                        console.error("Firebase 업데이트 실패:", error);
+                        isLocalRolling = false;
+                        if (btn) btn.disabled = false;
+                    });
 
+            } catch (err) {
+                console.error("주사위 연산 오류 강제 구출:", err);
+                isLocalRolling = false;
+                if (btn) btn.disabled = false;
+            }
+        }
+    }, 60);
+};
         function moveTokensToCells() {
             try {
                 const offsets = [{ x: -12, y: 15 }, { x: 12, y: 15 }, { x: -12, y: -5 }, { x: 12, y: -5 }];
