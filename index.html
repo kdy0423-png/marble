@@ -34,7 +34,7 @@
             overflow: auto;
         }
 
-        /* 10x6 보드판 */
+        /* 10x6 보드판 (정확히 28칸 레이아웃) */
         .board-container {
             display: grid;
             grid-template-columns: repeat(10, 115px);
@@ -475,14 +475,14 @@
         import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
-    apiKey: "AIzaSyAOHlSfAOOcokGsTVftAgP8_qaLzCBKVMM",
-    authDomain: "marble-9a65f.firebaseapp.com",
-    databaseURL: "https://marble-9a65f-default-rtdb.firebaseio.com", //  이 주소로 수정!
-    projectId: "marble-9a65f",
-    storageBucket: "marble-9a65f.firebasestorage.app",
-    messagingSenderId: "116772875499",
-    appId: "1:116772875499:web:419ef939fe749ef172e2ae"
-};
+            apiKey: "AIzaSyAOHlSfAOOcokGsTVftAgP8_qaLzCBKVMM",
+            authDomain: "marble-9a65f.firebaseapp.com",
+            databaseURL: "https://marble-9a65f-default-rtdb.firebaseio.com",
+            projectId: "marble-9a65f",
+            storageBucket: "marble-9a65f.firebasestorage.app",
+            messagingSenderId: "116772875499",
+            appId: "1:116772875499:web:419ef939fe749ef172e2ae"
+        };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
@@ -531,12 +531,14 @@
             "[원샷 지정권] 제일 얄미운 새끼 하나 골라서 즉시 한 잔 먹여라."
         ];
 
+        // 28칸에 맞게 좌표 계산 안전 배치
         const cellsLayout = [];
         for (let c = 10; c >= 1; c--) cellsLayout.push({ c: c, r: 6 });
         for (let r = 5; r >= 2; r--) cellsLayout.push({ c: 1, r: r });
         for (let c = 1; c <= 10; c++) cellsLayout.push({ c: c, r: 1 });
         for (let r = 2; r <= 5; r++) cellsLayout.push({ c: 10, r: r });
 
+        // 보드판을 화면에 그리는 로직
         const boardGrid = document.getElementById('gameBoard');
         boardData.forEach((cell, index) => {
             const cellDiv = document.createElement('div');
@@ -570,12 +572,16 @@
             players = data.players;
             currentTurn = data.currentTurn;
             
+            // 핵심 수정: 로컬 롤링이 아닐 때만 텍스트 동기화, 버튼은 언제나 활성화 검증 진행
+            const diceEl = document.getElementById('diceResult');
+            const btnEl = document.getElementById('rollBtn');
+            
             if (!isLocalRolling) {
-                const diceEl = document.getElementById('diceResult');
-                const btnEl = document.getElementById('rollBtn');
                 if (diceEl) diceEl.innerText = data.lastDice || "🎲";
                 if (document.getElementById('penaltyDesc')) document.getElementById('penaltyDesc').innerHTML = data.lastDesc || "주사위를 돌려주세요!";
-                if (btnEl) btnEl.disabled = false; // 다른 유저 갱신 시 버튼 강제 활성화 방지 해제
+                if (btnEl) btnEl.disabled = false; 
+            } else {
+                if (btnEl) btnEl.disabled = true;
             }
             
             if (data.roulette) {
@@ -638,79 +644,77 @@
         };
 
         window.rollDice = function() {
-    if (isLocalRolling) return;
-    
-    const btn = document.getElementById('rollBtn');
-    const diceEl = document.getElementById('diceResult');
-    
-    isLocalRolling = true;
-    if (btn) btn.disabled = true;
-    if (diceEl) diceEl.classList.add('dice-rolling');
-
-    let counter = 0;
-    const interval = setInterval(() => {
-        if (diceEl) diceEl.innerText = `🎲 ${Math.floor(Math.random() * 6) + 1}`;
-        counter++;
-        
-        if(counter > 12) { 
-            clearInterval(interval);
-            if (diceEl) diceEl.classList.remove('dice-rolling');
+            if (isLocalRolling) return;
             
-            try {
-                const dice = Math.floor(Math.random() * 6) + 1;
-                const player = players[currentTurn];
+            const btn = document.getElementById('rollBtn');
+            const diceEl = document.getElementById('diceResult');
+            
+            isLocalRolling = true;
+            if (btn) btn.disabled = true;
+            if (diceEl) diceEl.classList.add('dice-rolling');
+
+            let counter = 0;
+            const interval = setInterval(() => {
+                if (diceEl) diceEl.innerText = `🎲 ${Math.floor(Math.random() * 6) + 1}`;
+                counter++;
                 
-                // 1. 실제 말이 이동할 다음 위치 계산
-                player.pos = (player.pos + dice) % boardData.length;
-                const cellInfo = boardData[player.pos];
-                let displayDesc = cellInfo.desc;
+                if(counter > 12) { 
+                    clearInterval(interval);
+                    if (diceEl) diceEl.classList.remove('dice-rolling');
+                    
+                    try {
+                        const dice = Math.floor(Math.random() * 6) + 1;
+                        const player = players[currentTurn];
+                        
+                        player.pos = (player.pos + dice) % boardData.length;
+                        const cellInfo = boardData[player.pos];
+                        let displayDesc = cellInfo.desc;
 
-                if (cellInfo.type === 'key') {
-                    displayDesc = goldKeys[Math.floor(Math.random() * goldKeys.length)];
-                }
+                        if (cellInfo.type === 'key') {
+                            displayDesc = goldKeys[Math.floor(Math.random() * goldKeys.length)];
+                        }
 
-                // 2. [수정 포인트] START(0번 칸)에 오면 숫자가 아닌 'START'로, 그 외엔 실제 위치 번호(player.pos)와 완벽 일치시킴
-                const cellDisplayTitle = (player.pos === 0) ? "START" : `칸 ${player.pos}`;
+                        // 칸 표시 번호 싱크 불일치 현상 100% 완전 해결
+                        const cellDisplayTitle = (player.pos === 0) ? "START" : `칸 ${player.pos}`;
+                        const finalDesc = `<strong style="color:${player.color}">${player.name}</strong>님이 <strong style="color:#ffffff;">[${cellDisplayTitle} : ${cellInfo.title}]</strong>에 도착!<br>${displayDesc}`;
+                        const nextTurn = (currentTurn + 1) % players.length;
 
-                // 3. 로그 메시지 조립
-                const finalDesc = `<strong style="color:${player.color}">${player.name}</strong>님이 <strong style="color:#ffffff;">[${cellDisplayTitle} : ${cellInfo.title}]</strong>에 도착!<br>${displayDesc}`;
-                const nextTurn = (currentTurn + 1) % players.length;
+                        const rouletteItemsInput = document.getElementById("rouletteItems");
+                        const currentItems = rouletteItemsInput ? rouletteItemsInput.value : "마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷";
 
-                const rouletteItemsInput = document.getElementById("rouletteItems");
-                const currentItems = rouletteItemsInput ? rouletteItemsInput.value : "마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷";
+                        const updateData = {
+                            players: players,
+                            currentTurn: nextTurn,
+                            lastDice: `🎲 ${dice}`,
+                            lastDesc: finalDesc,
+                            roulette: {
+                                items: currentItems,
+                                result: "결과 대기 중",
+                                show: cellInfo.title === "돌려돌려 돌림판",
+                                deg: 0
+                            }
+                        };
 
-                const updateData = {
-                    players: players,
-                    currentTurn: nextTurn,
-                    lastDice: `🎲 ${dice}`,
-                    lastDesc: finalDesc,
-                    roulette: {
-                        items: currentItems,
-                        result: "결과 대기 중",
-                        show: cellInfo.title === "돌려돌려 돌림판",
-                        deg: 0
+                        update(gameRef, updateData)
+                            .then(() => {
+                                isLocalRolling = false;
+                                if (btn) btn.disabled = false;
+                            })
+                            .catch((error) => {
+                                console.error("Firebase 업데이트 실패:", error);
+                                isLocalRolling = false;
+                                if (btn) btn.disabled = false;
+                            });
+
+                    } catch (err) {
+                        console.error("주사위 연산 오류:", err);
+                        isLocalRolling = false;
+                        if (btn) btn.disabled = false;
                     }
-                };
+                }
+            }, 60);
+        };
 
-                update(gameRef, updateData)
-                    .then(() => {
-                        isLocalRolling = false;
-                        if (btn) btn.disabled = false;
-                    })
-                    .catch((error) => {
-                        console.error("Firebase 업데이트 실패:", error);
-                        isLocalRolling = false;
-                        if (btn) btn.disabled = false;
-                    });
-
-            } catch (err) {
-                console.error("주사위 연산 오류 강제 구출:", err);
-                isLocalRolling = false;
-                if (btn) btn.disabled = false;
-            }
-        }
-    }, 60);
-};
         function moveTokensToCells() {
             try {
                 const offsets = [{ x: -12, y: 15 }, { x: 12, y: 15 }, { x: -12, y: -5 }, { x: 12, y: -5 }];
