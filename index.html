@@ -1,338 +1,827 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
-const firebaseConfig = {
-    apiKey: "AIzaSyAOHlSfAOOcokGsTVftAgP8_qaLzCBKVMM", // ⚠️ 콘솔에서 도메인 제한을 꼭 거세요!
-    authDomain: "marble-9a65f.firebaseapp.com",
-    databaseURL: "https://marble-9a65f-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "marble-9a65f",
-    storageBucket: "marble-9a65f.firebasestorage.app",
-    messagingSenderId: "116772875499",
-    appId: "1:116772875499:web:419ef939fe749ef172e2ae"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const gameRef = ref(db, "gameRoom");
-
-const boardData = [
-    { type: "start", title: "START", desc: "시작점! 다 같이 시원하게 축배 들고 출발!" },
-    { type: "normal", title: "PASS", desc: "앙 기모취! 다음 사람 주사위 굴려." },
-    { type: "normal", title: "찌찌파티", desc: "다음 내 차례까지 웃통 까고 있기." },
-    { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
-    { type: "normal", title: "왼쪽 술 먹기", desc: "디코 화면 기준 왼쪽 사람이 술 먹기."},
-    { type: "normal", title: "적립 술", desc: "소주 또는 맥주 반 잔 씩 적립." },
-    { type: "normal", title: "안주 컷", desc: "다음 자기 차례 올 때까지 안주 흡입 금지." },
-    { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
-    { type: "normal", title: "PASS", desc: "앙 기모취! 다음 사람 주사위 굴려." },
-    { type: "corner", title: "디코 낙오자", desc: "마이크 음소거 징역 1턴. 말하면 벌주 2잔." },
-    { type: "normal", title: "진실 게임", desc: "진실만 말하고 거짓이면 한 잔 먹기." },
-    { type: "normal", title: "돌려돌려 돌림판", desc: "중앙의 [🎡 룰렛] 버튼을 눌러 돌림판을 진행하세요!" },
-    { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
-    { type: "normal", title: "너희 마셔", desc: "양 옆 사람이 술 먹기." },
-    { type: "save", title: "무인도 (휴식)", desc: "안전지대 안착! 편안하게 쉬면서 직관하기." },
-    { type: "normal", title: "한 잔 쉴드", desc: "한 잔 쉴드권 획득!" },
-    { type: "normal", title: "한 잔 먹기", desc: "맥주 또는 소주 한 잔 먹기." },
-    { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
-    { type: "normal", title: "원샷 지정권", desc: "제일 얄미운 새끼 하나 골라서 즉시 한 잔 먹여라." },
-    { type: "normal", title: "오른쪽 술 먹기", desc: "디코 화면 기준 오른쪽 사람이 술 먹기."},
-    { type: "normal", title: "PASS", desc: "앙 기모취! 다음 사람 주사위 굴려." },
-    { type: "normal", title: "한 잔 먹기", desc: "맥주 또는 소주 한 잔 먹기." },
-    { type: "normal", title: "훈민정음", desc: "1턴 동안 외국어 말할 시 한 잔" },
-    { type: "corner", title: "적립 술 털기", desc: "적립 된 술 만큼 술 먹기." },
-    { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
-    { type: "normal", title: "적립 술", desc: "소주 또는 맥주 반 잔 씩 적립." },
-    { type: "normal", title: "단체 원샷", desc: "다 같이 깔끔하게 건배하고 한 잔씩 고." },
-    { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" }
-];
-
-const goldKeys = [
-    "[한 잔 쉴드] 한 잔 쉴드권 획득!.",
-    "[한 잔 먹기] 맥주 또는 소주 한 잔 먹기.",
-    "[너 술 잘 먹는다] 적립술 먹기",
-    "[손병호 게임] 제일 먼저 다 접은사람이 술 먹기.",
-    "[에코의 축복] 2칸 앞에 있는 벌칙 수행하기.",
-    "[너희 마셔] 디코 기준 양 옆 사람이 술 먹기.",
-    "[의리 파괴자] 오른쪽 사람 잔에 원하는 만큼 술 채우기.",
-    "[반사 거울] 아무 벌칙이나 한 번 반사할 수 있는 방어권 (1턴 유효)",
-    "[원샷 지정권] 제일 얄미운 새끼 하나 골라서 즉시 한 잔 먹여라."
-];
-
-const cellsLayout = [];
-for (let c = 10; c >= 1; c--) cellsLayout.push({ c: c, r: 6 });
-for (let r = 5; r >= 2; r--) cellsLayout.push({ c: 1, r: r });
-for (let c = 1; c <= 10; c++) cellsLayout.push({ c: c, r: 1 });
-for (let r = 2; r <= 5; r++) cellsLayout.push({ c: 10, r: r });
-
-const boardGrid = document.getElementById('gameBoard');
-boardData.forEach((cell, index) => {
-    const cellDiv = document.createElement('div');
-    cellDiv.className = `cell ${cell.type}`;
-    cellDiv.style.gridColumn = cellsLayout[index].c;
-    cellDiv.style.gridRow = cellsLayout[index].r;
-    cellDiv.id = `cell-${index}`;
-    cellDiv.innerHTML = `
-        <div class="cell-num">${index === 0 ? 'START' : '칸 ' + index}</div>
-        <div class="cell-title">${cell.title}</div>
-        <div class="token-area" id="tokens-${index}"></div>
-    `;
-    boardGrid.appendChild(cellDiv);
-});
-
-let players = [];
-let currentTurn = 0;
-let gameStateExists = false;
-let isLocalRolling = false; // 주사위 연타 방지용 로컬 변수
-let isRouletteSpinning = false;
-
-onValue(gameRef, (snapshot) => {
-    const data = snapshot.val();
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE ALUMNI MARBLE (Realtime Multiplayer)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
     
-    if (!data) {
-        document.getElementById('setupModal').style.display = 'flex';
-        gameStateExists = false;
-        return;
-    }
-
-    gameStateExists = true;
-    document.getElementById('setupModal').style.display = 'none';
-    
-    players = data.players;
-    currentTurn = data.currentTurn;
-    
-    // 로컬에서 주사위를 굴리는 중이 아닐 때만 서버 데이터로 갱신
-    if (!isLocalRolling) {
-        document.getElementById('diceResult').innerText = data.lastDice || "🎲";
-        document.getElementById('penaltyDesc').innerHTML = data.lastDesc || "주사위를 돌려주세요!";
-    }
-    
-    if (data.roulette) {
-        document.getElementById("rouletteItems").value = data.roulette.items || "";
-        document.getElementById("rouletteResult").innerHTML = data.roulette.result || "결과 대기 중";
-        
-        if(data.roulette.deg !== undefined) {
-            document.getElementById("rouletteCanvas").style.transform = `rotate(${data.roulette.deg}deg)`;
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --border-color: #334155;
+            --text-main: #f8fafc;
+            --accent-red: #ef4444;
+            --accent-blue: #3b82f6;
+            --accent-gold: #f59e0b;
+            --accent-green: #10b981;
+            --accent-purple: #a855f7;
         }
-        
-        if (data.roulette.show) {
-            document.getElementById("mainGameView").style.display = "none";
-            document.getElementById("rouletteView").style.display = "grid";
-        } else {
-            document.getElementById("mainGameView").style.display = "flex";
-            document.getElementById("rouletteView").style.display = "none";
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            overflow: auto;
         }
-    }
 
-    players.forEach(p => {
-        const tEl = document.getElementById(`token-${p.id}`);
-        tEl.innerText = p.emoji;
-        tEl.setAttribute('data-name', p.name);
-        tEl.style.display = 'block';
-    });
-
-    moveTokensToCells();
-    updateTurnUI();
-    drawRoulette();
-    
-    // 주사위 굴리는 중이 아닐 때만 버튼 활성화
-    if (!isLocalRolling) {
-        document.getElementById('rollBtn').disabled = false;
-    }
-});
-
-window.startGame = function() {
-    const initialPlayers = [
-        { id: 1, name: document.getElementById('p1-name').value, pos: 0, emoji: document.getElementById('p1-emoji').value, color: "#ef4444" },
-        { id: 2, name: document.getElementById('p2-name').value, pos: 0, emoji: document.getElementById('p2-emoji').value, color: "#3b82f6" },
-        { id: 3, name: document.getElementById('p3-name').value, pos: 0, emoji: document.getElementById('p3-emoji').value, color: "#10b981" },
-        { id: 4, name: document.getElementById('p4-name').value, pos: 0, emoji: document.getElementById('p4-emoji').value, color: "#a855f7" }
-    ];
-
-    set(gameRef, {
-        players: initialPlayers,
-        currentTurn: 0,
-        lastDice: "🎲",
-        lastDesc: "주루마블 오픈! 주사위를 던지세요.",
-        roulette: {
-            items: "마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷",
-            result: "결과 대기 중",
-            show: false,
-            deg: 0
+        /* 10x6 보드판 */
+        .board-container {
+            display: grid;
+            grid-template-columns: repeat(10, 115px);
+            grid-template-rows: repeat(6, 105px);
+            gap: 6px;
+            background-color: rgba(255, 255, 255, 0.02);
+            padding: 15px;
+            border-radius: 20px;
+            border: 2px solid var(--border-color);
+            position: relative;
         }
-    });
-};
 
-window.resetRoom = function() {
-    if(confirm("정말 방을 초기화하고 처음 대기실 상태로 돌리시겠습니까?")) {
-        set(gameRef, null);
-    }
-};
+        .cell {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
 
-window.rollDice = function() {
-    if (isLocalRolling) return;
-    
-    const btn = document.getElementById('rollBtn');
-    const diceEl = document.getElementById('diceResult');
-    
-    isLocalRolling = true;
-    btn.disabled = true;
-    diceEl.classList.add('dice-rolling');
+        .cell.start { background: linear-gradient(135deg, #047857, #065f46); border: none; }
+        .cell.corner { background-color: #111827; border-color: var(--accent-red); }
+        .cell.save { background-color: #111827; border-color: var(--accent-green); }
+        .cell.key { border-top: 4px solid var(--accent-gold); }
 
-    let counter = 0;
-    const interval = setInterval(() => {
-        diceEl.innerText = `🎲 ${Math.floor(Math.random() * 6) + 1}`;
-        counter++;
-        
-        if(counter > 12) { 
-            clearInterval(interval);
-            diceEl.classList.remove('dice-rolling');
+        .cell-num { font-family: 'Montserrat', sans-serif; font-size: 10px; color: #64748b; font-weight: 700; }
+        .cell.start .cell-num, .cell.corner .cell-num { color: #94a3b8; }
+        .cell-title { font-size: 13px; font-weight: 700; color: #ffffff; text-align: center; margin-top: 2px; line-height: 1.3; }
+
+        /* 플레이어 레이어 */
+        .token-area {
+            display: flex;
+            gap: 3px;
+            flex-wrap: wrap;
+            min-height: 25px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .token {
+            font-size: 24px;
+            position: absolute;
+            z-index: 20;
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            cursor: pointer;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
+        }
+
+        .token::after {
+            content: attr(data-name);
+            position: absolute;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(15, 23, 42, 0.95);
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            border: 1px solid var(--border-color);
+        }
+        .token:hover::after { opacity: 1; }
+
+        /* 중앙 패널 */
+        .center-panel {
+            grid-column: 2 / 10;
+            grid-row: 2 / 6;
+            background-color: rgba(15, 23, 42, 0.93);
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            text-align: center;
+            border: 1px dashed #475569;
+            z-index: 5;
+            position: relative;
+        }
+
+        .game-title {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: #ffffff;
+            margin-bottom: 2px;
+        }
+        .game-subtitle {
+            font-size: 11px;
+            color: #64748b;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .turn-indicator {
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            padding: 4px 14px;
+            border-radius: 20px;
+            background-color: rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-content-wrapper {
+            width: 100%;
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .main-game-view {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .log-box {
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+
+        .dice-val { 
+            font-size: 45px; 
+            margin-bottom: 5px;
+            display: inline-block;
+        }
+        .dice-rolling {
+            animation: roll 0.15s infinite linear;
+        }
+        @keyframes roll {
+            0% { transform: translateY(0) rotate(0deg) scale(1.1); }
+            50% { transform: translateY(-10px) rotate(180deg) scale(1.2); }
+            100% { transform: translateY(0) rotate(360deg) scale(1.1); }
+        }
+
+        .penalty-text { font-size: 15px; color: #cbd5e1; line-height: 1.5; max-width: 600px; }
+
+        .control-btns {
+            display: flex;
+            gap: 10px;
+        }
+
+        .roll-button {
+            background: linear-gradient(135deg, #ef4444, #b91c1c);
+            color: white;
+            border: none;
+            padding: 12px 40px;
+            font-size: 16px;
+            font-weight: 700;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4);
+            transition: transform 0.1s;
+        }
+        .roll-button:disabled {
+            background: #475569;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .util-button {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: 700;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+        }
+
+        /* 룰렛 UI */
+        .roulette-view {
+            display: none;
+            width: 100%;
+            height: 100%;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 20px;
+            align-items: center;
+            text-align: left;
+        }
+
+        .roulette-container {
+            position: relative;
+            width: 240px;
+            height: 240px;
+            margin: 0 auto;
+        }
+
+        .roulette-pin {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 12px solid transparent;
+            border-right: 12px solid transparent;
+            border-top: 20px solid var(--accent-red);
+            z-index: 30;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+        }
+
+        #rouletteCanvas {
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(0,0,0,0.6), 0 0 0 4px var(--border-color);
+            transition: transform 4s cubic-bezier(0.1, 0.8, 0.1, 1);
+        }
+
+        .roulette-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            height: 100%;
+            justify-content: center;
+        }
+
+        .roulette-controls label {
+            font-size: 12px;
+            color: #94a3b8;
+            font-weight: bold;
+        }
+
+        .roulette-controls textarea {
+            width: 100%;
+            height: 65px;
+            background-color: #0f172a;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px;
+            color: white;
+            font-size: 12px;
+            resize: none;
+        }
+
+        .roulette-btn-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-spin {
+            flex: 1;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            border: none;
+            padding: 10px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-spin:disabled { background: #475569; cursor: not-allowed; }
+
+        .btn-close-roulette {
+            background: #475569;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        #rouletteResult {
+            font-size: 13px;
+            font-weight: bold;
+            color: var(--accent-gold);
+            text-align: center;
+            min-height: 20px;
+            background: rgba(255,255,255,0.05);
+            padding: 6px;
+            border-radius: 6px;
+        }
+
+        /* 방 리셋 버튼 */
+        .reset-room-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: transparent;
+            border: 1px solid #475569;
+            color: #94a3b8;
+            padding: 4px 10px;
+            font-size: 11px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .reset-room-btn:hover { background-color: rgba(255,255,255,0.05); color: #fff; }
+
+        /* 설정 모달 */
+        .setup-modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(15,23,42,0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .setup-content {
+            background-color: var(--card-bg);
+            padding: 40px;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            width: 500px;
+            max-width: 90%;
+        }
+        .setup-content h2 { margin-bottom: 20px; text-align: center; color: #fff; }
+        .player-input-row { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+        .player-input-row input { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background-color: #0f172a; color: #fff; }
+        .player-input-row select { padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background-color: #0f172a; color: #fff; }
+        .start-game-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, #10b981, #059669); border: none; color: #fff; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="setup-modal" id="setupModal" style="display:none;">
+        <div class="setup-content">
+            <h2>👥 친구들 이름 및 말 등록</h2>
+            <div style="text-align: center; font-size: 12px; color: #94a3b8; margin-bottom: 15px;">
+                🚨 한 명만 등록하면 실시간으로 전원 자동 시작됩니다!
+            </div>
+            <div id="inputsContainer">
+                <div class="player-input-row">
+                    <span style="font-weight:bold; color:#ef4444; width:50px;">P1</span>
+                    <input type="text" id="p1-name" value="김알코올">
+                    <select id="p1-emoji">
+                        <option value="🐋">🐋 술고래</option>
+                        <option value="🐓">🐓 꽐라치킨</option>
+                        <option value="🍾">🍾 소주병</option>
+                        <option value="🦮">🦮 만취댕댕이</option>
+                        <option value="🤮">🤮 토쟁이</option>
+                    </select>
+                </div>
+                <div class="player-input-row">
+                    <span style="font-weight:bold; color:#3b82f6; width:50px;">P2</span>
+                    <input type="text" id="p2-name" value="이만취">
+                    <select id="p2-emoji">
+                        <option value="🐓">🐓 꽐라치킨</option>
+                        <option value="🐋">🐋 술고래</option>
+                        <option value="🍾">🍾 소주병</option>
+                        <option value="🦮">🦮 만취댕댕이</option>
+                    </select>
+                </div>
+                <div class="player-input-row">
+                    <span style="font-weight:bold; color:#10b981; width:50px;">P3</span>
+                    <input type="text" id="p3-name" value="최술고래">
+                    <select id="p3-emoji">
+                        <option value="🍾">🍾 소주병</option>
+                        <option value="🐋">🐋 술고래</option>
+                        <option value="🐓">🐓 꽐라치킨</option>
+                    </select>
+                </div>
+                <div class="player-input-row">
+                    <span style="font-weight:bold; color:#a855f7; width:50px;">P4</span>
+                    <input type="text" id="p4-name" value="박꽐라">
+                    <select id="p4-emoji">
+                        <option value="🦮">🦮 만취댕댕이</option>
+                        <option value="🐋">🐋 술고래</option>
+                        <option value="🍾">🍾 소주병</option>
+                    </select>
+                </div>
+            </div>
+            <button class="start-game-btn" onclick="startGame()">주루마블 개장하기 🍺</button>
+        </div>
+    </div>
+
+    <div class="board-container" id="gameBoard">
+        <div id="token-1" class="token" style="display:none;"></div>
+        <div id="token-2" class="token" style="display:none;"></div>
+        <div id="token-3" class="token" style="display:none;"></div>
+        <div id="token-4" class="token" style="display:none;"></div>
+
+        <div class="center-panel">
+            <button class="reset-room-btn" onclick="resetRoom()">방 초기화 🔄</button>
+            <div class="game-title">THE ALUMNI MARBLE</div>
+            <div class="game-subtitle">실시간 멀티플레이 주루마블</div>
             
-            const dice = Math.floor(Math.random() * 6) + 1;
-            const player = players[currentTurn];
-            
-            player.pos = (player.pos + dice) % boardData.length;
-            const cellInfo = boardData[player.pos];
-            let displayDesc = cellInfo.desc;
+            <div class="turn-indicator">
+                <span id="turnEmoji" style="font-size: 18px;">🎲</span>
+                <span id="turnName" style="color:#ef4444;">데이터 연결 중...</span>
+            </div>
 
-            if (cellInfo.type === 'key') {
-                displayDesc = goldKeys[Math.floor(Math.random() * goldKeys.length)];
+            <div class="panel-content-wrapper">
+                <div class="main-game-view" id="mainGameView">
+                    <div class="log-box">
+                        <div id="diceResult" class="dice-val">🎲</div>
+                        <div id="penaltyDesc" class="penalty-text">서버와 통신을 시작합니다.</div>
+                    </div>
+                    <div class="control-btns">
+                        <button class="roll-button" id="rollBtn" onclick="rollDice()" disabled>주사위 굴리기</button>
+                        <button class="util-button" id="openRouletteBtn" onclick="toggleRouletteView(true)">🎡 룰렛</button>
+                    </div>
+                </div>
+
+                <div class="roulette-view" id="rouletteView">
+                    <div class="roulette-container">
+                        <div class="roulette-pin"></div>
+                        <canvas id="rouletteCanvas" width="240" height="240"></canvas>
+                    </div>
+                    <div class="roulette-controls">
+                        <label for="rouletteItems">📋 칸 내용 (쉼표 구분)</label>
+                        <textarea id="rouletteItems">마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷</textarea>
+                        <div id="rouletteResult">결과 대기 중</div>
+                        <div class="roulette-btn-group">
+                            <button class="btn-spin" id="spinBtn" onclick="spinRoulette()">돌리기!</button>
+                            <button class="btn-close-roulette" onclick="toggleRouletteView(false)">닫기</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAOHlSfAOOcokGsTVftAgP8_qaLzCBKVMM",
+            authDomain: "marble-9a65f.firebaseapp.com",
+            databaseURL: "https://marble-9a65f-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "marble-9a65f",
+            storageBucket: "marble-9a65f.firebasestorage.app",
+            messagingSenderId: "116772875499",
+            appId: "1:116772875499:web:419ef939fe749ef172e2ae"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const gameRef = ref(db, "gameRoom");
+
+        const boardData = [
+            { type: "start", title: "START", desc: "시작점! 다 같이 시원하게 축배 들고 출발!" },
+            { type: "normal", title: "PASS", desc: "앙 기모취! 다음 사람 주사위 굴려." },
+            { type: "normal", title: "찌찌파티", desc: "다음 내 차례까지 웃통 까고 있기." },
+            { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
+            { type: "normal", title: "왼쪽 술 먹기", desc: "디코 화면 기준 왼쪽 사람이 술 먹기."},
+            { type: "normal", title: "적립 술", desc: "소주 또는 맥주 반 잔 씩 적립." },
+            { type: "normal", title: "안주 컷", desc: "다음 자기 차례 올 때까지 안주 흡입 금지." },
+            { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
+            { type: "normal", title: "PASS", desc: "앙 기모취! 다음 사람 주사위 굴려." },
+            { type: "corner", title: "디코 낙오자", desc: "마이크 음소거 징역 1턴. 말하면 벌주 2잔." },
+            { type: "normal", title: "진실 게임", desc: "진실만 말하고 거짓이면 한 잔 먹기." },
+            { type: "normal", title: "돌려돌려 돌림판", desc: "중앙의 [🎡 룰렛] 버튼을 눌러 돌림판을 진행하세요!" },
+            { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
+            { type: "normal", title: "너희 마셔", desc: "양 옆 사람이 술 먹기." },
+            { type: "save", title: "무인도 (휴식)", desc: "안전지대 안착! 편안하게 쉬면서 직관하기." },
+            { type: "normal", title: "한 잔 쉴드", desc: "한 잔 쉴드권 획득!" },
+            { type: "normal", title: "한 잔 먹기", desc: "맥주 또는 소주 한 잔 먹기." },
+            { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
+            { type: "normal", title: "원샷 지정권", desc: "제일 얄미운 새끼 하나 골라서 즉시 한 잔 먹여라." },
+            { type: "normal", title: "오른쪽 술 먹기", desc: "디코 화면 기준 오른쪽 사람이 술 먹기."},
+            { type: "normal", title: "PASS", desc: "앙 기모취! 다음 사람 주사위 굴려." },
+            { type: "normal", title: "한 잔 먹기", desc: "맥주 또는 소주 한 잔 먹기." },
+            { type: "normal", title: "훈민정음", desc: "1턴 동안 외국어 말할 시 한 잔" },
+            { type: "corner", title: "적립 술 털기", desc: "적립 된 술 만큼 술 먹기." },
+            { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
+            { type: "normal", title: "적립 술", desc: "소주 또는 맥주 반 잔 씩 적립." },
+            { type: "normal", title: "단체 원샷", desc: "다 같이 깔끔하게 건배하고 한 잔씩 고." },
+            { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" }
+        ];
+
+        const goldKeys = [
+            "[한 잔 쉴드] 한 잔 쉴드권 획득!.",
+            "[한 잔 먹기] 맥주 또는 소주 한 잔 먹기.",
+            "[너 술 잘 먹는다] 적립술 먹기",
+            "[손병호 게임] 제일 먼저 다 접은사람이 술 먹기.",
+            "[에코의 축복] 2칸 앞에 있는 벌칙 수행하기.",
+            "[너희 마셔] 디코 기준 양 옆 사람이 술 먹기.",
+            "[의리 파괴자] 오른쪽 사람 잔에 원하는 만큼 술 채우기.",
+            "[반사 거울] 아무 벌칙이나 한 번 반사할 수 있는 방어권 (1턴 유효)",
+            "[원샷 지정권] 제일 얄미운 새끼 하나 골라서 즉시 한 잔 먹여라."
+        ];
+
+        const cellsLayout = [];
+        for (let c = 10; c >= 1; c--) cellsLayout.push({ c: c, r: 6 });
+        for (let r = 5; r >= 2; r--) cellsLayout.push({ c: 1, r: r });
+        for (let c = 1; c <= 10; c++) cellsLayout.push({ c: c, r: 1 });
+        for (let r = 2; r <= 5; r++) cellsLayout.push({ c: 10, r: r });
+
+        const boardGrid = document.getElementById('gameBoard');
+        boardData.forEach((cell, index) => {
+            const cellDiv = document.createElement('div');
+            cellDiv.className = `cell ${cell.type}`;
+            cellDiv.style.gridColumn = cellsLayout[index].c;
+            cellDiv.style.gridRow = cellsLayout[index].r;
+            cellDiv.id = `cell-${index}`;
+            cellDiv.innerHTML = `
+                <div class="cell-num">${index === 0 ? 'START' : '칸 ' + index}</div>
+                <div class="cell-title">${cell.title}</div>
+                <div class="token-area" id="tokens-${index}"></div>
+            `;
+            boardGrid.appendChild(cellDiv);
+        });
+
+        let players = [];
+        let currentTurn = 0;
+        let gameStateExists = false;
+        let isLocalRolling = false; 
+        let isRouletteSpinning = false;
+
+        onValue(gameRef, (snapshot) => {
+            const data = snapshot.val();
+            
+            if (!data) {
+                document.getElementById('setupModal').style.display = 'flex';
+                gameStateExists = false;
+                return;
             }
 
-            const finalDesc = `<strong style="color:${player.color}">${player.name}</strong>님이 <strong style="color:#ffffff;">[${cellInfo.title}]</strong>에 도착!<br>${displayDesc}`;
-            const nextTurn = (currentTurn + 1) % players.length;
+            gameStateExists = true;
+            document.getElementById('setupModal').style.display = 'none';
+            
+            players = data.players;
+            currentTurn = data.currentTurn;
+            
+            if (!isLocalRolling) {
+                document.getElementById('diceResult').innerText = data.lastDice || "🎲";
+                document.getElementById('penaltyDesc').innerHTML = data.lastDesc || "주사위를 돌려주세요!";
+            }
+            
+            if (data.roulette) {
+                document.getElementById("rouletteItems").value = data.roulette.items || "";
+                document.getElementById("rouletteResult").innerHTML = data.roulette.result || "결과 대기 중";
+                
+                if(data.roulette.deg !== undefined) {
+                    document.getElementById("rouletteCanvas").style.transform = `rotate(${data.roulette.deg}deg)`;
+                }
+                
+                if (data.roulette.show) {
+                    document.getElementById("mainGameView").style.display = "none";
+                    document.getElementById("rouletteView").style.display = "grid";
+                } else {
+                    document.getElementById("mainGameView").style.display = "flex";
+                    document.getElementById("rouletteView").style.display = "none";
+                }
+            }
 
-            update(gameRef, {
-                players: players,
-                currentTurn: nextTurn,
-                lastDice: `🎲 ${dice}`,
-                lastDesc: finalDesc,
-                "roulette/show": cellInfo.title === "돌려돌려 돌림판"
-            }).then(() => {
-                isLocalRolling = false;
+            players.forEach(p => {
+                const tEl = document.getElementById(`token-${p.id}`);
+                if (tEl) {
+                    tEl.innerText = p.emoji;
+                    tEl.setAttribute('data-name', p.name);
+                    tEl.style.display = 'block';
+                }
+            });
+
+            moveTokensToCells();
+            updateTurnUI();
+            drawRoulette();
+            
+            if (!isLocalRolling) {
+                document.getElementById('rollBtn').disabled = false;
+            }
+        });
+
+        window.startGame = function() {
+            const initialPlayers = [
+                { id: 1, name: document.getElementById('p1-name').value, pos: 0, emoji: document.getElementById('p1-emoji').value, color: "#ef4444" },
+                { id: 2, name: document.getElementById('p2-name').value, pos: 0, emoji: document.getElementById('p2-emoji').value, color: "#3b82f6" },
+                { id: 3, name: document.getElementById('p3-name').value, pos: 0, emoji: document.getElementById('p3-emoji').value, color: "#10b981" },
+                { id: 4, name: document.getElementById('p4-name').value, pos: 0, emoji: document.getElementById('p4-emoji').value, color: "#a855f7" }
+            ];
+
+            set(gameRef, {
+                players: initialPlayers,
+                currentTurn: 0,
+                lastDice: "🎲",
+                lastDesc: "주루마블 오픈! 주사위를 던지세요.",
+                roulette: {
+                    items: "마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷",
+                    result: "결과 대기 중",
+                    show: false,
+                    deg: 0
+                }
+            });
+        };
+
+        window.resetRoom = function() {
+            if(confirm("정말 방을 초기화하고 처음 대기실 상태로 돌리시겠습니까?")) {
+                set(gameRef, null);
+            }
+        };
+
+        window.rollDice = function() {
+            if (isLocalRolling) return;
+            
+            const btn = document.getElementById('rollBtn');
+            const diceEl = document.getElementById('diceResult');
+            
+            isLocalRolling = true;
+            btn.disabled = true;
+            diceEl.classList.add('dice-rolling');
+
+            let counter = 0;
+            const interval = setInterval(() => {
+                diceEl.innerText = `🎲 ${Math.floor(Math.random() * 6) + 1}`;
+                counter++;
+                
+                if(counter > 12) { 
+                    clearInterval(interval);
+                    diceEl.classList.remove('dice-rolling');
+                    
+                    const dice = Math.floor(Math.random() * 6) + 1;
+                    const player = players[currentTurn];
+                    
+                    player.pos = (player.pos + dice) % boardData.length;
+                    const cellInfo = boardData[player.pos];
+                    let displayDesc = cellInfo.desc;
+
+                    if (cellInfo.type === 'key') {
+                        displayDesc = goldKeys[Math.floor(Math.random() * goldKeys.length)];
+                    }
+
+                    const finalDesc = `<strong style="color:${player.color}">${player.name}</strong>님이 <strong style="color:#ffffff;">[${cellInfo.title}]</strong>에 도착!<br>${displayDesc}`;
+                    const nextTurn = (currentTurn + 1) % players.length;
+
+                    const rouletteItemsInput = document.getElementById("rouletteItems");
+                    const currentItems = rouletteItemsInput ? rouletteItemsInput.value : "마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷";
+
+                    const updateData = {
+                        players: players,
+                        currentTurn: nextTurn,
+                        lastDice: `🎲 ${dice}`,
+                        lastDesc: finalDesc,
+                        roulette: {
+                            items: currentItems,
+                            result: "결과 대기 중",
+                            show: cellInfo.title === "돌려돌려 돌림판",
+                            deg: 0
+                        }
+                    };
+
+                    update(gameRef, updateData)
+                        .then(() => {
+                            isLocalRolling = false;
+                        })
+                        .catch((error) => {
+                            console.error("Firebase 업데이트 에러:", error);
+                            isLocalRolling = false;
+                            btn.disabled = false;
+                        });
+                }
+            }, 60);
+        };
+
+        function moveTokensToCells() {
+            const offsets = [{ x: -12, y: 15 }, { x: 12, y: 15 }, { x: -12, y: -5 }, { x: 12, y: -5 }];
+            players.forEach((p, idx) => {
+                const cellEl = document.getElementById('cell-' + p.pos);
+                const tokenEl = document.getElementById('token-' + p.id);
+                if(!cellEl || !tokenEl) return;
+                
+                const cellRect = cellEl.getBoundingClientRect();
+                const boardRect = boardGrid.getBoundingClientRect();
+                
+                const relativeTop = cellRect.top - boardRect.top + (cellRect.height / 2) - 12 + offsets[idx].y;
+                const relativeLeft = cellRect.left - boardRect.left + (cellRect.width / 2) - 12 + offsets[idx].x;
+                
+                tokenEl.style.top = `${relativeTop}px`;
+                tokenEl.style.left = `${relativeLeft}px`;
             });
         }
-    }, 60);
-};
 
-function moveTokensToCells() {
-    const offsets = [{ x: -12, y: 15 }, { x: 12, y: 15 }, { x: -12, y: -5 }, { x: 12, y: -5 }];
-    players.forEach((p, idx) => {
-        const cellEl = document.getElementById('cell-' + p.pos);
-        const tokenEl = document.getElementById('token-' + p.id);
-        if(!cellEl || !tokenEl) return;
-        
-        const cellRect = cellEl.getBoundingClientRect();
-        const boardRect = boardGrid.getBoundingClientRect();
-        
-        const relativeTop = cellRect.top - boardRect.top + (cellRect.height / 2) - 12 + offsets[idx].y;
-        const relativeLeft = cellRect.left - boardRect.left + (cellRect.width / 2) - 12 + offsets[idx].x;
-        
-        tokenEl.style.top = `${relativeTop}px`;
-        tokenEl.style.left = `${relativeLeft}px`;
-    });
-}
+        function updateTurnUI() {
+            if(players.length === 0) return;
+            const cp = players[currentTurn];
+            document.getElementById('turnEmoji').innerText = cp.emoji;
+            document.getElementById('turnName').innerText = `${cp.name}의 차례`;
+            document.getElementById('turnName').style.color = cp.color;
+        }
 
-function updateTurnUI() {
-    if(players.length === 0) return;
-    const cp = players[currentTurn];
-    document.getElementById('turnEmoji').innerText = cp.emoji;
-    document.getElementById('turnName').innerText = `${cp.name}의 차례`;
-    document.getElementById('turnName').style.color = cp.color;
-}
+        window.addEventListener('resize', moveTokensToCells);
 
-window.addEventListener('resize', moveTokensToCells);
+        /* 🎡 룰렛 구현 파트 */
+        const canvas = document.getElementById("rouletteCanvas");
+        const ctx = canvas.getContext("2d");
 
-/* 🎡 룰렛 구현 파트 */
-const canvas = document.getElementById("rouletteCanvas");
-const ctx = canvas.getContext("2d");
+        window.drawRoulette = function() {
+            const itemsText = document.getElementById("rouletteItems").value;
+            const items = itemsText.split(",").map(item => item.trim()).filter(item => item !== "");
+            if (items.length === 0) return;
 
-window.drawRoulette = function() {
-    const itemsText = document.getElementById("rouletteItems").value;
-    const items = itemsText.split(",").map(item => item.trim()).filter(item => item !== "");
-    if (items.length === 0) return;
+            const numSegments = items.length;
+            const segmentAngle = (2 * Math.PI) / numSegments;
+            const radius = canvas.width / 2;
 
-    const numSegments = items.length;
-    const segmentAngle = (2 * Math.PI) / numSegments;
-    const radius = canvas.width / 2;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const colors = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#a855f7", "#ec4899", "#14b8a6"];
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const colors = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#a855f7", "#ec4899", "#14b8a6"];
+            for (let i = 0; i < numSegments; i++) {
+                const startAngle = i * segmentAngle;
+                const endAngle = startAngle + segmentAngle;
 
-    for (let i = 0; i < numSegments; i++) {
-        const startAngle = i * segmentAngle;
-        const endAngle = startAngle + segmentAngle;
+                ctx.beginPath();
+                ctx.moveTo(radius, radius);
+                ctx.arc(radius, radius, radius, startAngle, endAngle);
+                ctx.closePath();
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fill();
+                ctx.strokeStyle = "#1e293b";
+                ctx.lineWidth = 2;
+                ctx.stroke();
 
-        ctx.beginPath();
-        ctx.moveTo(radius, radius);
-        ctx.arc(radius, radius, radius, startAngle, endAngle);
-        ctx.closePath();
-        ctx.fillStyle = colors[i % colors.length];
-        ctx.fill();
-        ctx.strokeStyle = "#1e293b";
-        ctx.lineWidth = 2;
-        ctx.stroke();
+                ctx.save();
+                ctx.translate(radius, radius);
+                ctx.rotate(startAngle + segmentAngle / 2);
+                ctx.textAlign = "right";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 11px Noto Sans KR";
+                ctx.fillText(items[i], radius - 15, 0);
+                ctx.restore();
+            }
 
-        ctx.save();
-        ctx.translate(radius, radius);
-        ctx.rotate(startAngle + segmentAngle / 2);
-        ctx.textAlign = "right";
-        ctx.textBaseline = "middle";
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 11px Noto Sans KR";
-        ctx.fillText(items[i], radius - 15, 0);
-        ctx.restore();
-    }
+            ctx.beginPath();
+            ctx.arc(radius, radius, 18, 0, 2 * Math.PI);
+            ctx.fillStyle = "#0f172a";
+            ctx.fill();
+            ctx.closePath();
+        };
 
-    ctx.beginPath();
-    ctx.arc(radius, radius, 18, 0, 2 * Math.PI);
-    ctx.fillStyle = "#0f172a";
-    ctx.fill();
-    ctx.closePath();
-};
-
-document.getElementById("rouletteItems").addEventListener("input", () => {
-    const txt = document.getElementById("rouletteItems").value;
-    update(gameRef, { "roulette/items": txt });
-});
-
-window.spinRoulette = function() {
-    if (isRouletteSpinning) return;
-
-    const itemsText = document.getElementById("rouletteItems").value;
-    const items = itemsText.split(",").map(item => item.trim()).filter(item => item !== "");
-    if (items.length === 0) return;
-
-    isRouletteSpinning = true;
-    document.getElementById("spinBtn").disabled = true;
-
-    // 1. 회전 각도와 당첨 결과를 '미리' 계산합니다.
-    const addRotation = 1800 + Math.floor(Math.random() * 1800); 
-    const currentDeg = players.roulette?.deg || 0;
-    const finalRotation = currentDeg + addRotation; // 누적 각도 계산
-
-    const actualDegrees = finalRotation % 360;
-    const numSegments = items.length;
-    const segmentDegrees = 360 / numSegments;
-    // 핀 위치(상단 90도 부근) 기준 계산 고정
-    const winningIndex = Math.floor((360 - (actualDegrees - 90)) % 360 / segmentDegrees);
-    const resultText = items[(winningIndex + numSegments) % numSegments];
-
-    // 2. 계산된 큰 회전값을 먼저 DB에 쏴서 모든 화면에서 돌게 만듭니다.
-    update(gameRef, { 
-        "roulette/result": "음주 레이더 돌리는 중... 🍻",
-        "roulette/deg": finalRotation
-    });
-
-    // 3. 애니메이션 시간(4초)이 끝난 후 최종 텍스트만 업데이트합니다. (실제 각도는 그대로 둠)
-    setTimeout(() => {
-        update(gameRef, { 
-            "roulette/result": `🎉 결과: <strong>${resultText}</strong>`
+        document.getElementById("rouletteItems").addEventListener("input", () => {
+            const txt = document.getElementById("rouletteItems").value;
+            update(gameRef, { "roulette/items": txt });
         });
-        isRouletteSpinning = false;
-        document.getElementById("spinBtn").disabled = false;
-    }, 4000);
-};
 
-window.toggleRouletteView = function(show) {
-    update(gameRef, { "roulette/show": show });
-};
+        window.spinRoulette = function() {
+            if (isRouletteSpinning) return;
+
+            const itemsText = document.getElementById("rouletteItems").value;
+            const items = itemsText.split(",").map(item => item.trim()).filter(item => item !== "");
+            if (items.length === 0) return;
+
+            isRouletteSpinning = true;
+            document.getElementById("spinBtn").disabled = true;
+
+            const addRotation = 1800 + Math.floor(Math.random() * 1800); 
+            const currentDeg = 0; 
+            const finalRotation = currentDeg + addRotation; 
+
+            const actualDegrees = finalRotation % 360;
+            const numSegments = items.length;
+            const segmentDegrees = 360 / numSegments;
+            const winningIndex = Math.floor((360 - (actualDegrees - 90)) % 360 / segmentDegrees);
+            const resultText = items[(winningIndex + numSegments) % numSegments];
+
+            update(gameRef, { 
+                "roulette/result": "음주 레이더 돌리는 중... 🍻",
+                "roulette/deg": finalRotation
+            });
+
+            setTimeout(() => {
+                update(gameRef, { 
+                    "roulette/result": `🎉 결과: <strong>${resultText}</strong>`
+                });
+                isRouletteSpinning = false;
+                document.getElementById("spinBtn").disabled = false;
+            }, 4000);
+        };
+
+        window.toggleRouletteView = function(show) {
+            update(gameRef, { "roulette/show": show });
+        };
+    </script>
+</body>
+</html>
