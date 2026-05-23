@@ -35,6 +35,7 @@
             overflow: auto;
         }
 
+        /* 10x6 보드판 (정확히 28칸 레이아웃) */
         .board-container {
             display: grid;
             grid-template-columns: repeat(10, 115px);
@@ -106,6 +107,7 @@
         }
         .token:hover::after { opacity: 1; }
 
+        /* 중앙 패널 */
         .center-panel {
             grid-column: 2 / 10;
             grid-row: 2 / 6;
@@ -225,6 +227,7 @@
             box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
         }
 
+        /* 룰렛 UI */
         .roulette-view {
             display: none;
             width: 100%;
@@ -328,6 +331,7 @@
             border-radius: 6px;
         }
 
+        /* 방 리셋 버튼 */
         .reset-room-btn {
             position: absolute;
             top: 15px;
@@ -342,6 +346,7 @@
         }
         .reset-room-btn:hover { background-color: rgba(255,255,255,0.05); color: #fff; }
 
+        /* 설정 모달 */
         .setup-modal {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -577,7 +582,8 @@
             document.getElementById('setupModal').style.display = 'none';
             
             players = data.players || [];
-            currentTurn = data.currentTurn ?? 0;
+            // [안전장치] 받아온 현재 차례 값을 강제로 숫자로 변환
+            currentTurn = data.currentTurn !== undefined ? parseInt(data.currentTurn, 10) : 0;
             
             const diceEl = document.getElementById('diceResult');
             const btnEl = document.getElementById('rollBtn');
@@ -657,6 +663,10 @@
 
         window.rollDice = function() {
             if (isLocalRolling) return;
+            
+            // [안전장치] 계산 전 전역 차례 변수를 정수화
+            currentTurn = parseInt(currentTurn, 10);
+
             if (!players || players.length === 0 || !players[currentTurn]) {
                 alert("참여자가 정상적으로 로드되지 않았습니다. 잠시만 기다리시거나 대기실을 다시 열어주세요.");
                 return;
@@ -682,7 +692,10 @@
                         const dice = Math.floor(Math.random() * 6) + 1;
                         const player = players[currentTurn];
                         
-                        player.pos = (player.pos + dice) % boardData.length;
+                        // [핵심 수정] 파이어베이스에서 꺼내온 데이터가 문자형태여도 강제로 정수로 다듬어서 덧셈 오류 차단 ("0"+5 = "05" 차단)
+                        let currentPos = parseInt(player.pos, 10) || 0;
+                        player.pos = (currentPos + dice) % boardData.length;
+                        
                         const cellInfo = boardData[player.pos];
                         let displayDesc = cellInfo.desc;
 
@@ -697,10 +710,10 @@
                         const rouletteItemsInput = document.getElementById("rouletteItems");
                         const currentItems = rouletteItemsInput ? rouletteItemsInput.value : "마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷";
 
-                        // 데이터 일관성을 무너뜨리던 부분 수정: 덮어쓰기 문제 예방을 위해 전체 트리를 온전히 전송 (update -> set)
+                        // 구조 파괴 예방을 위해 전체 객체를 온전히 동기화하는 set() 방식으로 최적화
                         set(gameRef, {
                             players: players,
-                            currentTurn: nextTurn,
+                            currentTurn: parseInt(nextTurn, 10),
                             lastDice: `🎲 ${dice}`,
                             lastDesc: finalDesc,
                             roulette: {
@@ -731,7 +744,9 @@
                 if (!players || players.length === 0) return;
                 const offsets = [{ x: -12, y: 15 }, { x: 12, y: 15 }, { x: -12, y: -5 }, { x: 12, y: -5 }];
                 players.forEach((p, idx) => {
-                    const cellEl = document.getElementById('cell-' + p.pos);
+                    // [안전장치] 말 위치를 그릴 때도 데이터 검증 후 숫자로 강제 매핑
+                    let targetPos = parseInt(p.pos, 10) || 0;
+                    const cellEl = document.getElementById('cell-' + targetPos);
                     const tokenEl = document.getElementById('token-' + p.id);
                     if(!cellEl || !tokenEl) return;
                     
@@ -749,6 +764,7 @@
 
         function updateTurnUI() {
             if(!players || players.length === 0) return;
+            currentTurn = parseInt(currentTurn, 10);
             const cp = players[currentTurn];
             if(!cp) return;
             if(document.getElementById('turnEmoji')) document.getElementById('turnEmoji').innerText = cp.emoji;
