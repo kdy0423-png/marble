@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>THE ALUMNI MARBLE (Realtime Multiplayer)</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAA=">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
@@ -34,7 +35,6 @@
             overflow: auto;
         }
 
-        /* 10x6 보드판 (정확히 28칸 레이아웃) */
         .board-container {
             display: grid;
             grid-template-columns: repeat(10, 115px);
@@ -106,7 +106,6 @@
         }
         .token:hover::after { opacity: 1; }
 
-        /* 중앙 패널 */
         .center-panel {
             grid-column: 2 / 10;
             grid-row: 2 / 6;
@@ -226,7 +225,6 @@
             box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
         }
 
-        /* 룰렛 UI */
         .roulette-view {
             display: none;
             width: 100%;
@@ -330,7 +328,6 @@
             border-radius: 6px;
         }
 
-        /* 방 리셋 버튼 */
         .reset-room-btn {
             position: absolute;
             top: 15px;
@@ -345,7 +342,6 @@
         }
         .reset-room-btn:hover { background-color: rgba(255,255,255,0.05); color: #fff; }
 
-        /* 설정 모달 */
         .setup-modal {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -561,10 +557,8 @@
             const data = snapshot.val();
             
             if (!data) {
-                // 방이 완전히 초기화되었을 때의 처리 보완
-                players = []; 
+                players = [];
                 currentTurn = 0;
-                
                 document.getElementById('setupModal').style.display = 'flex';
                 for(let i=1; i<=4; i++) {
                     const tEl = document.getElementById(`token-${i}`);
@@ -588,11 +582,12 @@
             const diceEl = document.getElementById('diceResult');
             const btnEl = document.getElementById('rollBtn');
             
-            // 로컬에서 주사위를 굴리는 동안에는 외부 동기화로 인한 UI 갱신을 차단함 (핵심 수정)
             if (!isLocalRolling) {
                 if (diceEl) diceEl.innerText = data.lastDice || "🎲";
                 if (document.getElementById('penaltyDesc')) document.getElementById('penaltyDesc').innerHTML = data.lastDesc || "주사위를 돌려주세요!";
                 if (btnEl) btnEl.disabled = false; 
+            } else {
+                if (btnEl) btnEl.disabled = true;
             }
             
             if (data.roulette) {
@@ -613,7 +608,6 @@
                 }
             }
 
-            // 모든 말 숨기기 후 활성화된 유저만 다시 띄우기
             for(let i=1; i<=4; i++) {
                 const tEl = document.getElementById(`token-${i}`);
                 if(tEl) tEl.style.display = 'none';
@@ -664,7 +658,7 @@
         window.rollDice = function() {
             if (isLocalRolling) return;
             if (!players || players.length === 0 || !players[currentTurn]) {
-                alert("게임 참여자가 등록되지 않았습니다. 방을 개장해 주세요.");
+                alert("참여자가 정상적으로 로드되지 않았습니다. 잠시만 기다리시거나 대기실을 다시 열어주세요.");
                 return;
             }
             
@@ -703,7 +697,8 @@
                         const rouletteItemsInput = document.getElementById("rouletteItems");
                         const currentItems = rouletteItemsInput ? rouletteItemsInput.value : "마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷";
 
-                        const updateData = {
+                        // 데이터 일관성을 무너뜨리던 부분 수정: 덮어쓰기 문제 예방을 위해 전체 트리를 온전히 전송 (update -> set)
+                        set(gameRef, {
                             players: players,
                             currentTurn: nextTurn,
                             lastDice: `🎲 ${dice}`,
@@ -714,21 +709,16 @@
                                 show: cellInfo.title === "돌려돌려 돌림판",
                                 deg: 0
                             }
-                        };
-
-                        update(gameRef, updateData)
-                            .then(() => {
-                                isLocalRolling = false;
-                                // 갱신 직후 버튼을 무조건 켜지 않고, 데이터 반영 상태에 따라 켜지도록 제어권 반환
-                            })
-                            .catch((error) => {
-                                console.error("Firebase 업데이트 실패:", error);
-                                isLocalRolling = false;
-                                if (btn) btn.disabled = false;
-                            });
+                        }).then(() => {
+                            isLocalRolling = false;
+                        }).catch((error) => {
+                            console.error("Firebase 동기화 실패:", error);
+                            isLocalRolling = false;
+                            if (btn) btn.disabled = false;
+                        });
 
                     } catch (err) {
-                        console.error("주사위 연산 오류:", err);
+                        console.error("주사위 연산 내부 오류:", err);
                         isLocalRolling = false;
                         if (btn) btn.disabled = false;
                     }
