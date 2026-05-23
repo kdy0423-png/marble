@@ -68,7 +68,6 @@
         .cell.start .cell-num, .cell.corner .cell-num { color: #94a3b8; }
         .cell-title { font-size: 13px; font-weight: 700; color: #ffffff; text-align: center; margin-top: 2px; line-height: 1.3; }
 
-        /* 플레이어 레이어 */
         .token-area {
             display: flex;
             gap: 3px;
@@ -555,7 +554,6 @@
 
         let players = [];
         let currentTurn = 0;
-        let gameStateExists = false;
         let isLocalRolling = false; 
         let isRouletteSpinning = false;
 
@@ -564,26 +562,27 @@
             
             if (!data) {
                 document.getElementById('setupModal').style.display = 'flex';
-                gameStateExists = false;
                 return;
             }
 
-            gameStateExists = true;
             document.getElementById('setupModal').style.display = 'none';
             
             players = data.players;
             currentTurn = data.currentTurn;
             
             if (!isLocalRolling) {
-                document.getElementById('diceResult').innerText = data.lastDice || "🎲";
-                document.getElementById('penaltyDesc').innerHTML = data.lastDesc || "주사위를 돌려주세요!";
+                const diceEl = document.getElementById('diceResult');
+                const btnEl = document.getElementById('rollBtn');
+                if (diceEl) diceEl.innerText = data.lastDice || "🎲";
+                if (document.getElementById('penaltyDesc')) document.getElementById('penaltyDesc').innerHTML = data.lastDesc || "주사위를 돌려주세요!";
+                if (btnEl) btnEl.disabled = false; // 다른 유저 갱신 시 버튼 강제 활성화 방지 해제
             }
             
             if (data.roulette) {
-                document.getElementById("rouletteItems").value = data.roulette.items || "";
-                document.getElementById("rouletteResult").innerHTML = data.roulette.result || "결과 대기 중";
+                if (document.getElementById("rouletteItems")) document.getElementById("rouletteItems").value = data.roulette.items || "";
+                if (document.getElementById("rouletteResult")) document.getElementById("rouletteResult").innerHTML = data.roulette.result || "결과 대기 중";
                 
-                if(data.roulette.deg !== undefined) {
+                if(data.roulette.deg !== undefined && document.getElementById("rouletteCanvas")) {
                     document.getElementById("rouletteCanvas").style.transform = `rotate(${data.roulette.deg}deg)`;
                 }
                 
@@ -608,10 +607,6 @@
             moveTokensToCells();
             updateTurnUI();
             drawRoulette();
-            
-            if (!isLocalRolling) {
-                document.getElementById('rollBtn').disabled = false;
-            }
         });
 
         window.startGame = function() {
@@ -643,136 +638,113 @@
         };
 
         window.rollDice = function() {
-    // 1. 이미 굴러가는 중이면 작동 안 함
-    if (isLocalRolling) return;
-    
-    const btn = document.getElementById('rollBtn');
-    const diceEl = document.getElementById('diceResult');
-    
-    // 안전장치: 버튼이 존재하면 즉시 비활성화
-    if (btn) btn.disabled = true;
-    
-    isLocalRolling = true;
-    if (diceEl) diceEl.classList.add('dice-rolling');
-
-    let counter = 0;
-    const interval = setInterval(() => {
-        if (diceEl) diceEl.innerText = `🎲 ${Math.floor(Math.random() * 6) + 1}`;
-        counter++;
-        
-        // 주사위 굴리는 애니메이션 종료 시점 (약 0.7초 후)
-        if(counter > 12) { 
-            clearInterval(interval);
-            if (diceEl) diceEl.classList.remove('dice-rolling');
+            if (isLocalRolling) return;
             
-            try {
-                const dice = Math.floor(Math.random() * 6) + 1;
-                const player = players[currentTurn];
+            const btn = document.getElementById('rollBtn');
+            const diceEl = document.getElementById('diceResult');
+            
+            isLocalRolling = true;
+            if (btn) btn.disabled = true;
+            if (diceEl) diceEl.classList.add('dice-rolling');
+
+            let counter = 0;
+            const interval = setInterval(() => {
+                if (diceEl) diceEl.innerText = `🎲 ${Math.floor(Math.random() * 6) + 1}`;
+                counter++;
                 
-                // 플레이어 위치 이동 계산
-                player.pos = (player.pos + dice) % boardData.length;
-                const cellInfo = boardData[player.pos];
-                let displayDesc = cellInfo.desc;
+                if(counter > 12) { 
+                    clearInterval(interval);
+                    if (diceEl) diceEl.classList.remove('dice-rolling');
+                    
+                    try {
+                        const dice = Math.floor(Math.random() * 6) + 1;
+                        const player = players[currentTurn];
+                        
+                        player.pos = (player.pos + dice) % boardData.length;
+                        const cellInfo = boardData[player.pos];
+                        let displayDesc = cellInfo.desc;
 
-                // 황금열쇠 처리
-                if (cellInfo.type === 'key') {
-                    displayDesc = goldKeys[Math.floor(Math.random() * goldKeys.length)];
-                }
+                        if (cellInfo.type === 'key') {
+                            displayDesc = goldKeys[Math.floor(Math.random() * goldKeys.length)];
+                        }
 
-                const finalDesc = `<strong style="color:${player.color}">${player.name}</strong>님이 <strong style="color:#ffffff;">[${cellInfo.title}]</strong>에 도착!<br>${displayDesc}`;
-                const nextTurn = (currentTurn + 1) % players.length;
+                        const finalDesc = `<strong style="color:${player.color}">${player.name}</strong>님이 <strong style="color:#ffffff;">[${cellInfo.title}]</strong>에 도착!<br>${displayDesc}`;
+                        const nextTurn = (currentTurn + 1) % players.length;
 
-                // 룰렛 아이템 텍스트 안전하게 가져오기
-                const rouletteItemsInput = document.getElementById("rouletteItems");
-                const currentItems = rouletteItemsInput ? rouletteItemsInput.value : "마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷";
+                        const rouletteItemsInput = document.getElementById("rouletteItems");
+                        const currentItems = rouletteItemsInput ? rouletteItemsInput.value : "마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷";
 
-                // 돌림판 칸에 걸렸는지 판별
-                const isRouletteCell = (cellInfo.title === "돌려돌려 돌림판");
+                        const updateData = {
+                            players: players,
+                            currentTurn: nextTurn,
+                            lastDice: `🎲 ${dice}`,
+                            lastDesc: finalDesc,
+                            roulette: {
+                                items: currentItems,
+                                result: "결과 대기 중",
+                                show: cellInfo.title === "돌려돌려 돌림판",
+                                deg: 0
+                            }
+                        };
 
-                // Firebase 전송 데이터 구성 (구조가 깨지지 않도록 모든 필드 고정)
-                const updateData = {
-                    players: players,
-                    currentTurn: nextTurn,
-                    lastDice: `🎲 ${dice}`,
-                    lastDesc: finalDesc,
-                    roulette: {
-                        items: currentItems,
-                        result: "결과 대기 중",
-                        show: isRouletteCell,
-                        deg: 0
+                        update(gameRef, updateData)
+                            .then(() => {
+                                isLocalRolling = false;
+                                if (btn) btn.disabled = false;
+                            })
+                            .catch((error) => {
+                                console.error("Firebase 업데이트 실패:", error);
+                                isLocalRolling = false;
+                                if (btn) btn.disabled = false;
+                            });
+
+                    } catch (err) {
+                        console.error("주사위 연산 오류 강제 구출:", err);
+                        isLocalRolling = false;
+                        if (btn) btn.disabled = false;
                     }
-                };
-
-                // Firebase 업로드
-                update(gameRef, updateData)
-                    .then(() => {
-                        // 성공 시 잠금 해제
-                        isLocalRolling = false;
-                        if (btn) btn.disabled = false;
-                    })
-                    .catch((error) => {
-                        console.error("Firebase 서버 업로드 실패:", error);
-                        // 서버 오류가 나도 다음 주사위는 굴릴 수 있게 강제 해제
-                        isLocalRolling = false;
-                        if (btn) btn.disabled = false;
-                    });
-
-            } catch (jsError) {
-                // 코드 내부 연산 에러가 발생해도 버튼은 무조건 살려냄
-                console.error("자바스크립트 연산 에러 발생:", jsError);
-                isLocalRolling = false;
-                if (btn) btn.disabled = false;
-            }
-        }
-    }, 60);
-};
-
-                    update(gameRef, updateData)
-                        .then(() => {
-                            isLocalRolling = false;
-                        })
-                        .catch((error) => {
-                            console.error("Firebase 업데이트 에러:", error);
-                            isLocalRolling = false;
-                            btn.disabled = false;
-                        });
                 }
             }, 60);
         };
 
         function moveTokensToCells() {
-            const offsets = [{ x: -12, y: 15 }, { x: 12, y: 15 }, { x: -12, y: -5 }, { x: 12, y: -5 }];
-            players.forEach((p, idx) => {
-                const cellEl = document.getElementById('cell-' + p.pos);
-                const tokenEl = document.getElementById('token-' + p.id);
-                if(!cellEl || !tokenEl) return;
-                
-                const cellRect = cellEl.getBoundingClientRect();
-                const boardRect = boardGrid.getBoundingClientRect();
-                
-                const relativeTop = cellRect.top - boardRect.top + (cellRect.height / 2) - 12 + offsets[idx].y;
-                const relativeLeft = cellRect.left - boardRect.left + (cellRect.width / 2) - 12 + offsets[idx].x;
-                
-                tokenEl.style.top = `${relativeTop}px`;
-                tokenEl.style.left = `${relativeLeft}px`;
-            });
+            try {
+                const offsets = [{ x: -12, y: 15 }, { x: 12, y: 15 }, { x: -12, y: -5 }, { x: 12, y: -5 }];
+                players.forEach((p, idx) => {
+                    const cellEl = document.getElementById('cell-' + p.pos);
+                    const tokenEl = document.getElementById('token-' + p.id);
+                    if(!cellEl || !tokenEl) return;
+                    
+                    const cellRect = cellEl.getBoundingClientRect();
+                    const boardRect = boardGrid.getBoundingClientRect();
+                    
+                    const relativeTop = cellRect.top - boardRect.top + (cellRect.height / 2) - 12 + offsets[idx].y;
+                    const relativeLeft = cellRect.left - boardRect.left + (cellRect.width / 2) - 12 + offsets[idx].x;
+                    
+                    tokenEl.style.top = `${relativeTop}px`;
+                    tokenEl.style.left = `${relativeLeft}px`;
+                });
+            } catch(e) {}
         }
 
         function updateTurnUI() {
-            if(players.length === 0) return;
+            if(!players || players.length === 0) return;
             const cp = players[currentTurn];
-            document.getElementById('turnEmoji').innerText = cp.emoji;
-            document.getElementById('turnName').innerText = `${cp.name}의 차례`;
-            document.getElementById('turnName').style.color = cp.color;
+            if(!cp) return;
+            if(document.getElementById('turnEmoji')) document.getElementById('turnEmoji').innerText = cp.emoji;
+            if(document.getElementById('turnName')) {
+                document.getElementById('turnName').innerText = `${cp.name}의 차례`;
+                document.getElementById('turnName').style.color = cp.color;
+            }
         }
 
         window.addEventListener('resize', moveTokensToCells);
 
-        /* 🎡 룰렛 구현 파트 */
         const canvas = document.getElementById("rouletteCanvas");
         const ctx = canvas.getContext("2d");
 
         window.drawRoulette = function() {
+            if (!canvas) return;
             const itemsText = document.getElementById("rouletteItems").value;
             const items = itemsText.split(",").map(item => item.trim()).filter(item => item !== "");
             if (items.length === 0) return;
@@ -816,10 +788,12 @@
             ctx.closePath();
         };
 
-        document.getElementById("rouletteItems").addEventListener("input", () => {
-            const txt = document.getElementById("rouletteItems").value;
-            update(gameRef, { "roulette/items": txt });
-        });
+        if(document.getElementById("rouletteItems")) {
+            document.getElementById("rouletteItems").addEventListener("input", () => {
+                const txt = document.getElementById("rouletteItems").value;
+                update(gameRef, { "roulette/items": txt });
+            });
+        }
 
         window.spinRoulette = function() {
             if (isRouletteSpinning) return;
@@ -829,11 +803,10 @@
             if (items.length === 0) return;
 
             isRouletteSpinning = true;
-            document.getElementById("spinBtn").disabled = true;
+            if(document.getElementById("spinBtn")) document.getElementById("spinBtn").disabled = true;
 
             const addRotation = 1800 + Math.floor(Math.random() * 1800); 
-            const currentDeg = 0; 
-            const finalRotation = currentDeg + addRotation; 
+            const finalRotation = addRotation; 
 
             const actualDegrees = finalRotation % 360;
             const numSegments = items.length;
@@ -851,7 +824,7 @@
                     "roulette/result": `🎉 결과: <strong>${resultText}</strong>`
                 });
                 isRouletteSpinning = false;
-                document.getElementById("spinBtn").disabled = false;
+                if(document.getElementById("spinBtn")) document.getElementById("spinBtn").disabled = false;
             }, 4000);
         };
 
