@@ -531,14 +531,13 @@
             "[원샷 지정권] 제일 얄미운 새끼 하나 골라서 즉시 한 잔 먹여라."
         ];
 
-        // 28칸에 맞게 좌표 계산 안전 배치
+        // 28칸 전용 레이아웃 생성
         const cellsLayout = [];
         for (let c = 10; c >= 1; c--) cellsLayout.push({ c: c, r: 6 });
         for (let r = 5; r >= 2; r--) cellsLayout.push({ c: 1, r: r });
         for (let c = 1; c <= 10; c++) cellsLayout.push({ c: c, r: 1 });
         for (let r = 2; r <= 5; r++) cellsLayout.push({ c: 10, r: r });
 
-        // 보드판을 화면에 그리는 로직
         const boardGrid = document.getElementById('gameBoard');
         boardData.forEach((cell, index) => {
             const cellDiv = document.createElement('div');
@@ -562,17 +561,29 @@
         onValue(gameRef, (snapshot) => {
             const data = snapshot.val();
             
+            // [★ 핵심 에러 해결 포인트]: 방 데이터가 삭제(null)되었을 때 에러 방지 구문 배치
             if (!data) {
                 document.getElementById('setupModal').style.display = 'flex';
-                return;
+                // 화면의 토큰 숨기기 및 기본 텍스트 세팅
+                for(let i=1; i<=4; i++) {
+                    const tEl = document.getElementById(`token-${i}`);
+                    if(tEl) tEl.style.display = 'none';
+                }
+                const turnNameEl = document.getElementById('turnName');
+                if(turnNameEl) {
+                    turnNameEl.innerText = "대기 중...";
+                    turnNameEl.style.color = "#ef4444";
+                }
+                const rollBtnEl = document.getElementById('rollBtn');
+                if(rollBtnEl) rollBtnEl.disabled = true;
+                return; // 아래쪽 코드를 타지 않고 즉시 중단(안전 차단막)
             }
 
             document.getElementById('setupModal').style.display = 'none';
             
-            players = data.players;
-            currentTurn = data.currentTurn;
+            players = data.players || [];
+            currentTurn = data.currentTurn ?? 0;
             
-            // 핵심 수정: 로컬 롤링이 아닐 때만 텍스트 동기화, 버튼은 언제나 활성화 검증 진행
             const diceEl = document.getElementById('diceResult');
             const btnEl = document.getElementById('rollBtn');
             
@@ -645,6 +656,7 @@
 
         window.rollDice = function() {
             if (isLocalRolling) return;
+            if (!players || players.length === 0 || !players[currentTurn]) return;
             
             const btn = document.getElementById('rollBtn');
             const diceEl = document.getElementById('diceResult');
@@ -674,7 +686,6 @@
                             displayDesc = goldKeys[Math.floor(Math.random() * goldKeys.length)];
                         }
 
-                        // 칸 표시 번호 싱크 불일치 현상 100% 완전 해결
                         const cellDisplayTitle = (player.pos === 0) ? "START" : `칸 ${player.pos}`;
                         const finalDesc = `<strong style="color:${player.color}">${player.name}</strong>님이 <strong style="color:#ffffff;">[${cellDisplayTitle} : ${cellInfo.title}]</strong>에 도착!<br>${displayDesc}`;
                         const nextTurn = (currentTurn + 1) % players.length;
@@ -717,6 +728,7 @@
 
         function moveTokensToCells() {
             try {
+                if (!players || players.length === 0) return;
                 const offsets = [{ x: -12, y: 15 }, { x: 12, y: 15 }, { x: -12, y: -5 }, { x: 12, y: -5 }];
                 players.forEach((p, idx) => {
                     const cellEl = document.getElementById('cell-' + p.pos);
@@ -753,7 +765,9 @@
 
         window.drawRoulette = function() {
             if (!canvas) return;
-            const itemsText = document.getElementById("rouletteItems").value;
+            const rouletteItemsInput = document.getElementById("rouletteItems");
+            if (!rouletteItemsInput) return;
+            const itemsText = rouletteItemsInput.value;
             const items = itemsText.split(",").map(item => item.trim()).filter(item => item !== "");
             if (items.length === 0) return;
 
