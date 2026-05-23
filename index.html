@@ -473,334 +473,343 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // ✅ 수정 완료: databaseURL에 본인의 실제 프로젝트 ID 주소를 주입했습니다.
-        const firebaseConfig = {
-            apiKey: "AIzaSyAOHlSfAOOcokGsTVftAgP8_qaLzCBKVMM",
-            authDomain: "marble-9a65f.firebaseapp.com",
-            databaseURL: "https://marble-9a65f-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "marble-9a65f",
-            storageBucket: "marble-9a65f.firebasestorage.app",
-            messagingSenderId: "116772875499",
-            appId: "1:116772875499:web:419ef939fe749ef172e2ae"
-        };
+const firebaseConfig = {
+    apiKey: "AIzaSyAOHlSfAOOcokGsTVftAgP8_qaLzCBKVMM", // ⚠️ 콘솔에서 도메인 제한을 꼭 거세요!
+    authDomain: "marble-9a65f.firebaseapp.com",
+    databaseURL: "https://marble-9a65f-default-rtdb.firebaseio.com/",
+    projectId: "marble-9a65f",
+    storageBucket: "marble-9a65f.firebasestorage.app",
+    messagingSenderId: "116772875499",
+    appId: "1:116772875499:web:419ef939fe749ef172e2ae"
+};
 
-        // Firebase 초기화
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        const gameRef = ref(db, "gameRoom");
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const gameRef = ref(db, "gameRoom");
 
-        // 보드 데이터 기본 구성
-        const boardData = [
-            { type: "start", title: "START", desc: "시작점! 다 같이 시원하게 축배 들고 출발!" },
-            { type: "normal", title: "PASS", desc: "앙 기모취! 다음 사람 주사위 굴려." },
-            { type: "normal", title: "찌찌파티", desc: "다음 내 차례까지 웃통 까고 있기." },
-            { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
-            { type: "normal", title: "왼쪽 술 먹기", desc: "디코 화면 기준 왼쪽 사람이 술 먹기."},
-            { type: "normal", title: "적립 술", desc: "소주 또는 맥주 반 잔 씩 적립." },
-            { type: "normal", title: "안주 컷", desc: "다음 자기 차례 올 때까지 안주 흡입 금지." },
-            { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
-            { type: "normal", title: "PASS", desc: "앙 기모취! 다음 사람 주사위 굴려." },
-            { type: "corner", title: "디코 낙오자", desc: "마이크 음소거 징역 1턴. 말하면 벌주 2잔." },
-            { type: "normal", title: "진실 게임", desc: "진실만 말하고 거짓이면 한 잔 먹기." },
-            { type: "normal", title: "돌려돌려 돌림판", desc: "중앙의 [🎡 룰렛] 버튼을 눌러 돌림판을 진행하세요!" },
-            { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
-            { type: "normal", title: "너희 마셔", desc: "양 옆 사람이 술 먹기." },
-            { type: "save", title: "무인도 (휴식)", desc: "안전지대 안착! 편안하게 쉬면서 직관하기." },
-            { type: "normal", title: "한 잔 쉴드", desc: "한 잔 쉴드권 획득!" },
-            { type: "normal", title: "한 잔 먹기", desc: "맥주 또는 소주 한 잔 먹기." },
-            { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
-            { type: "normal", title: "원샷 지정권", desc: "제일 얄미운 새끼 하나 골라서 즉시 한 잔 먹여라." },
-            { type: "normal", title: "오른쪽 술 먹기", desc: "디코 화면 기준 오른쪽 사람이 술 먹기."},
-            { type: "normal", title: "PASS", desc: "앙 기모취! 다음 사람 주사위 굴려." },
-            { type: "normal", title: "한 잔 먹기", desc: "맥주 또는 소주 한 잔 먹기." },
-            { type: "normal", title: "훈민정음", desc: "1턴 동안 외국어 말할 시 한 잔" },
-            { type: "corner", title: "적립 술 털기", desc: "적립 된 술 만큼 술 먹기." },
-            { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
-            { type: "normal", title: "적립 술", desc: "소주 또는 맥주 반 잔 씩 적립." },
-            { type: "normal", title: "단체 원샷", desc: "다 같이 깔끔하게 건배하고 한 잔씩 고." },
-            { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" }
-        ];
+const boardData = [
+    { type: "start", title: "START", desc: "시작점! 다 같이 시원하게 축배 들고 출발!" },
+    { type: "normal", title: "PASS", desc: "앙 기모취! 다음 사람 주사위 굴려." },
+    { type: "normal", title: "찌찌파티", desc: "다음 내 차례까지 웃통 까고 있기." },
+    { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
+    { type: "normal", title: "왼쪽 술 먹기", desc: "디코 화면 기준 왼쪽 사람이 술 먹기."},
+    { type: "normal", title: "적립 술", desc: "소주 또는 맥주 반 잔 씩 적립." },
+    { type: "normal", title: "안주 컷", desc: "다음 자기 차례 올 때까지 안주 흡입 금지." },
+    { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
+    { type: "normal", title: "PASS", desc: "앙 기모취! 다음 사람 주사위 굴려." },
+    { type: "corner", title: "디코 낙오자", desc: "마이크 음소거 징역 1턴. 말하면 벌주 2잔." },
+    { type: "normal", title: "진실 게임", desc: "진실만 말하고 거짓이면 한 잔 먹기." },
+    { type: "normal", title: "돌려돌려 돌림판", desc: "중앙의 [🎡 룰렛] 버튼을 눌러 돌림판을 진행하세요!" },
+    { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
+    { type: "normal", title: "너희 마셔", desc: "양 옆 사람이 술 먹기." },
+    { type: "save", title: "무인도 (휴식)", desc: "안전지대 안착! 편안하게 쉬면서 직관하기." },
+    { type: "normal", title: "한 잔 쉴드", desc: "한 잔 쉴드권 획득!" },
+    { type: "normal", title: "한 잔 먹기", desc: "맥주 또는 소주 한 잔 먹기." },
+    { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
+    { type: "normal", title: "원샷 지정권", desc: "제일 얄미운 새끼 하나 골라서 즉시 한 잔 먹여라." },
+    { type: "normal", title: "오른쪽 술 먹기", desc: "디코 화면 기준 오른쪽 사람이 술 먹기."},
+    { type: "normal", title: "PASS", desc: "앙 기모취! 다음 사람 주사위 굴려." },
+    { type: "normal", title: "한 잔 먹기", desc: "맥주 또는 소주 한 잔 먹기." },
+    { type: "normal", title: "훈민정음", desc: "1턴 동안 외국어 말할 시 한 잔" },
+    { type: "corner", title: "적립 술 털기", desc: "적립 된 술 만큼 술 먹기." },
+    { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" },
+    { type: "normal", title: "적립 술", desc: "소주 또는 맥주 반 잔 씩 적립." },
+    { type: "normal", title: "단체 원샷", desc: "다 같이 깔끔하게 건배하고 한 잔씩 고." },
+    { type: "key", title: "황금열쇠🔑", desc: "황금열쇠 발동!" }
+];
 
-        const goldKeys = [
-            "[한 잔 쉴드] 한 잔 쉴드권 획득!.",
-            "[한 잔 먹기] 맥주 또는 소주 한 잔 먹기.",
-            "[너 술 잘 먹는다] 적립술 먹기",
-            "[손병호 게임] 제일 먼저 다 접은사람이 술 먹기.",
-            "[에코의 축복] 2칸 앞에 있는 벌칙 수행하기.",
-            "[너희 마셔] 디코 기준 양 옆 사람이 술 먹기.",
-            "[의리 파괴자] 오른쪽 사람 잔에 원하는 만큼 술 채우기.",
-            "[반사 거울] 아무 벌칙이나 한 번 반사할 수 있는 방어권 (1턴 유효)",
-            "[원샷 지정권] 제일 얄미운 새끼 하나 골라서 즉시 한 잔 먹여라."
-        ];
+const goldKeys = [
+    "[한 잔 쉴드] 한 잔 쉴드권 획득!.",
+    "[한 잔 먹기] 맥주 또는 소주 한 잔 먹기.",
+    "[너 술 잘 먹는다] 적립술 먹기",
+    "[손병호 게임] 제일 먼저 다 접은사람이 술 먹기.",
+    "[에코의 축복] 2칸 앞에 있는 벌칙 수행하기.",
+    "[너희 마셔] 디코 기준 양 옆 사람이 술 먹기.",
+    "[의리 파괴자] 오른쪽 사람 잔에 원하는 만큼 술 채우기.",
+    "[반사 거울] 아무 벌칙이나 한 번 반사할 수 있는 방어권 (1턴 유효)",
+    "[원샷 지정권] 제일 얄미운 새끼 하나 골라서 즉시 한 잔 먹여라."
+];
 
-        // 10x6 좌표 맵핑
-        const cellsLayout = [];
-        for (let c = 10; c >= 1; c--) cellsLayout.push({ c: c, r: 6 });
-        for (let r = 5; r >= 2; r--) cellsLayout.push({ c: 1, r: r });
-        for (let c = 1; c <= 10; c++) cellsLayout.push({ c: c, r: 1 });
-        for (let r = 2; r <= 5; r++) cellsLayout.push({ c: 10, r: r });
+const cellsLayout = [];
+for (let c = 10; c >= 1; c--) cellsLayout.push({ c: c, r: 6 });
+for (let r = 5; r >= 2; r--) cellsLayout.push({ c: 1, r: r });
+for (let c = 1; c <= 10; c++) cellsLayout.push({ c: c, r: 1 });
+for (let r = 2; r <= 5; r++) cellsLayout.push({ c: 10, r: r });
 
-        const boardGrid = document.getElementById('gameBoard');
-        boardData.forEach((cell, index) => {
-            const cellDiv = document.createElement('div');
-            cellDiv.className = `cell ${cell.type}`;
-            cellDiv.style.gridColumn = cellsLayout[index].c;
-            cellDiv.style.gridRow = cellsLayout[index].r;
-            cellDiv.id = `cell-${index}`;
-            cellDiv.innerHTML = `
-                <div class="cell-num">${index === 0 ? 'START' : '칸 ' + index}</div>
-                <div class="cell-title">${cell.title}</div>
-                <div class="token-area" id="tokens-${index}"></div>
-            `;
-            boardGrid.appendChild(cellDiv);
-        });
+const boardGrid = document.getElementById('gameBoard');
+boardData.forEach((cell, index) => {
+    const cellDiv = document.createElement('div');
+    cellDiv.className = `cell ${cell.type}`;
+    cellDiv.style.gridColumn = cellsLayout[index].c;
+    cellDiv.style.gridRow = cellsLayout[index].r;
+    cellDiv.id = `cell-${index}`;
+    cellDiv.innerHTML = `
+        <div class="cell-num">${index === 0 ? 'START' : '칸 ' + index}</div>
+        <div class="cell-title">${cell.title}</div>
+        <div class="token-area" id="tokens-${index}"></div>
+    `;
+    boardGrid.appendChild(cellDiv);
+});
 
-        // 글로벌 스태이트
-        let players = [];
-        let currentTurn = 0;
-        let gameStateExists = false;
+let players = [];
+let currentTurn = 0;
+let gameStateExists = false;
+let isLocalRolling = false; // 주사위 연타 방지용 로컬 변수
+let isRouletteSpinning = false;
 
-        // 📡 실시간 서버 감시
-        onValue(gameRef, (snapshot) => {
-            const data = snapshot.val();
+onValue(gameRef, (snapshot) => {
+    const data = snapshot.val();
+    
+    if (!data) {
+        document.getElementById('setupModal').style.display = 'flex';
+        gameStateExists = false;
+        return;
+    }
+
+    gameStateExists = true;
+    document.getElementById('setupModal').style.display = 'none';
+    
+    players = data.players;
+    currentTurn = data.currentTurn;
+    
+    // 로컬에서 주사위를 굴리는 중이 아닐 때만 서버 데이터로 갱신
+    if (!isLocalRolling) {
+        document.getElementById('diceResult').innerText = data.lastDice || "🎲";
+        document.getElementById('penaltyDesc').innerHTML = data.lastDesc || "주사위를 돌려주세요!";
+    }
+    
+    if (data.roulette) {
+        document.getElementById("rouletteItems").value = data.roulette.items || "";
+        document.getElementById("rouletteResult").innerHTML = data.roulette.result || "결과 대기 중";
+        
+        if(data.roulette.deg !== undefined) {
+            document.getElementById("rouletteCanvas").style.transform = `rotate(${data.roulette.deg}deg)`;
+        }
+        
+        if (data.roulette.show) {
+            document.getElementById("mainGameView").style.display = "none";
+            document.getElementById("rouletteView").style.display = "grid";
+        } else {
+            document.getElementById("mainGameView").style.display = "flex";
+            document.getElementById("rouletteView").style.display = "none";
+        }
+    }
+
+    players.forEach(p => {
+        const tEl = document.getElementById(`token-${p.id}`);
+        tEl.innerText = p.emoji;
+        tEl.setAttribute('data-name', p.name);
+        tEl.style.display = 'block';
+    });
+
+    moveTokensToCells();
+    updateTurnUI();
+    drawRoulette();
+    
+    // 주사위 굴리는 중이 아닐 때만 버튼 활성화
+    if (!isLocalRolling) {
+        document.getElementById('rollBtn').disabled = false;
+    }
+});
+
+window.startGame = function() {
+    const initialPlayers = [
+        { id: 1, name: document.getElementById('p1-name').value, pos: 0, emoji: document.getElementById('p1-emoji').value, color: "#ef4444" },
+        { id: 2, name: document.getElementById('p2-name').value, pos: 0, emoji: document.getElementById('p2-emoji').value, color: "#3b82f6" },
+        { id: 3, name: document.getElementById('p3-name').value, pos: 0, emoji: document.getElementById('p3-emoji').value, color: "#10b981" },
+        { id: 4, name: document.getElementById('p4-name').value, pos: 0, emoji: document.getElementById('p4-emoji').value, color: "#a855f7" }
+    ];
+
+    set(gameRef, {
+        players: initialPlayers,
+        currentTurn: 0,
+        lastDice: "🎲",
+        lastDesc: "주루마블 오픈! 주사위를 던지세요.",
+        roulette: {
+            items: "마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷",
+            result: "결과 대기 중",
+            show: false,
+            deg: 0
+        }
+    });
+};
+
+window.resetRoom = function() {
+    if(confirm("정말 방을 초기화하고 처음 대기실 상태로 돌리시겠습니까?")) {
+        set(gameRef, null);
+    }
+};
+
+window.rollDice = function() {
+    if (isLocalRolling) return;
+    
+    const btn = document.getElementById('rollBtn');
+    const diceEl = document.getElementById('diceResult');
+    
+    isLocalRolling = true;
+    btn.disabled = true;
+    diceEl.classList.add('dice-rolling');
+
+    let counter = 0;
+    const interval = setInterval(() => {
+        diceEl.innerText = `🎲 ${Math.floor(Math.random() * 6) + 1}`;
+        counter++;
+        
+        if(counter > 12) { 
+            clearInterval(interval);
+            diceEl.classList.remove('dice-rolling');
             
-            if (!data) {
-                document.getElementById('setupModal').style.display = 'flex';
-                gameStateExists = false;
-                return;
+            const dice = Math.floor(Math.random() * 6) + 1;
+            const player = players[currentTurn];
+            
+            player.pos = (player.pos + dice) % boardData.length;
+            const cellInfo = boardData[player.pos];
+            let displayDesc = cellInfo.desc;
+
+            if (cellInfo.type === 'key') {
+                displayDesc = goldKeys[Math.floor(Math.random() * goldKeys.length)];
             }
 
-            gameStateExists = true;
-            document.getElementById('setupModal').style.display = 'none';
-            
-            players = data.players;
-            currentTurn = data.currentTurn;
-            
-            document.getElementById('diceResult').innerText = data.lastDice || "🎲";
-            document.getElementById('penaltyDesc').innerHTML = data.lastDesc || "주사위를 돌려주세요!";
-            
-            if (data.roulette) {
-                document.getElementById("rouletteItems").value = data.roulette.items || "";
-                document.getElementById("rouletteResult").innerHTML = data.roulette.result || "결과 대기 중";
-                
-                if(data.roulette.deg) {
-                    document.getElementById("rouletteCanvas").style.transform = `rotate(${data.roulette.deg}deg)`;
-                }
-                
-                if (data.roulette.show) {
-                    document.getElementById("mainGameView").style.display = "none";
-                    document.getElementById("rouletteView").style.display = "grid";
-                } else {
-                    document.getElementById("mainGameView").style.display = "flex";
-                    document.getElementById("rouletteView").style.display = "none";
-                }
-            }
+            const finalDesc = `<strong style="color:${player.color}">${player.name}</strong>님이 <strong style="color:#ffffff;">[${cellInfo.title}]</strong>에 도착!<br>${displayDesc}`;
+            const nextTurn = (currentTurn + 1) % players.length;
 
-            players.forEach(p => {
-                const tEl = document.getElementById(`token-${p.id}`);
-                tEl.innerText = p.emoji;
-                tEl.setAttribute('data-name', p.name);
-                tEl.style.display = 'block';
-            });
-
-            moveTokensToCells();
-            updateTurnUI();
-            drawRoulette();
-            
-            document.getElementById('rollBtn').disabled = false;
-        });
-
-        // 게임 시작 데이터 업로드
-        window.startGame = function() {
-            const initialPlayers = [
-                { id: 1, name: document.getElementById('p1-name').value, pos: 0, emoji: document.getElementById('p1-emoji').value, color: "#ef4444" },
-                { id: 2, name: document.getElementById('p2-name').value, pos: 0, emoji: document.getElementById('p2-emoji').value, color: "#3b82f6" },
-                { id: 3, name: document.getElementById('p3-name').value, pos: 0, emoji: document.getElementById('p3-emoji').value, color: "#10b981" },
-                { id: 4, name: document.getElementById('p4-name').value, pos: 0, emoji: document.getElementById('p4-emoji').value, color: "#a855f7" }
-            ];
-
-            set(gameRef, {
-                players: initialPlayers,
-                currentTurn: 0,
-                lastDice: "🎲",
-                lastDesc: "주루마블 오픈! 주사위를 던지세요.",
-                roulette: {
-                    items: "마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷",
-                    result: "결과 대기 중",
-                    show: false,
-                    deg: 0
-                }
-            });
-        };
-
-        // 방 초기화 기능
-        window.resetRoom = function() {
-            if(confirm("정말 방을 초기화하고 처음 대기실 상태로 돌리시겠습니까?")) {
-                set(gameRef, null);
-            }
-        };
-
-        // 주사위 굴리기
-        window.rollDice = function() {
-            const btn = document.getElementById('rollBtn');
-            const diceEl = document.getElementById('diceResult');
-            btn.disabled = true;
-            diceEl.classList.add('dice-rolling');
-
-            let counter = 0;
-            const interval = setInterval(() => {
-                diceEl.innerText = `🎲 ${Math.floor(Math.random() * 6) + 1}`;
-                counter++;
-                
-                if(counter > 12) { 
-                    clearInterval(interval);
-                    diceEl.classList.remove('dice-rolling');
-                    
-                    const dice = Math.floor(Math.random() * 6) + 1;
-                    const player = players[currentTurn];
-                    
-                    player.pos = (player.pos + dice) % boardData.length;
-                    const cellInfo = boardData[player.pos];
-                    let displayDesc = cellInfo.desc;
-
-                    if (cellInfo.type === 'key') {
-                        displayDesc = goldKeys[Math.floor(Math.random() * goldKeys.length)];
-                    }
-
-                    const finalDesc = `<strong style="color:${player.color}">${player.name}</strong>님이 <strong style="color:#ffffff;">[${cellInfo.title}]</strong>에 도착!<br>${displayDesc}`;
-                    const nextTurn = (currentTurn + 1) % players.length;
-
-                    update(gameRef, {
-                        players: players,
-                        currentTurn: nextTurn,
-                        lastDice: `🎲 ${dice}`,
-                        lastDesc: finalDesc,
-                        "roulette/show": cellInfo.title === "돌려돌려 돌림판" ? true : false
-                    });
-                }
-            }, 60);
-        };
-
-        // 말 이동 위치 매핑
-        function moveTokensToCells() {
-            const offsets = [{ x: -12, y: 15 }, { x: 12, y: 15 }, { x: -12, y: -5 }, { x: 12, y: -5 }];
-            players.forEach((p, idx) => {
-                const cellEl = document.getElementById('cell-' + p.pos);
-                const tokenEl = document.getElementById('token-' + p.id);
-                if(!cellEl || !tokenEl) return;
-                
-                const cellRect = cellEl.getBoundingClientRect();
-                const boardRect = boardGrid.getBoundingClientRect();
-                
-                const relativeTop = cellRect.top - boardRect.top + (cellRect.height / 2) - 12 + offsets[idx].y;
-                const relativeLeft = cellRect.left - boardRect.left + (cellRect.width / 2) - 12 + offsets[idx].x;
-                
-                tokenEl.style.top = `${relativeTop}px`;
-                tokenEl.style.left = `${relativeLeft}px`;
+            update(gameRef, {
+                players: players,
+                currentTurn: nextTurn,
+                lastDice: `🎲 ${dice}`,
+                lastDesc: finalDesc,
+                "roulette/show": cellInfo.title === "돌려돌려 돌림판"
+            }).then(() => {
+                isLocalRolling = false;
             });
         }
+    }, 60);
+};
 
-        function updateTurnUI() {
-            if(players.length === 0) return;
-            const cp = players[currentTurn];
-            document.getElementById('turnEmoji').innerText = cp.emoji;
-            document.getElementById('turnName').innerText = `${cp.name}의 차례`;
-            document.getElementById('turnName').style.color = cp.color;
-        }
+function moveTokensToCells() {
+    const offsets = [{ x: -12, y: 15 }, { x: 12, y: 15 }, { x: -12, y: -5 }, { x: 12, y: -5 }];
+    players.forEach((p, idx) => {
+        const cellEl = document.getElementById('cell-' + p.pos);
+        const tokenEl = document.getElementById('token-' + p.id);
+        if(!cellEl || !tokenEl) return;
+        
+        const cellRect = cellEl.getBoundingClientRect();
+        const boardRect = boardGrid.getBoundingClientRect();
+        
+        const relativeTop = cellRect.top - boardRect.top + (cellRect.height / 2) - 12 + offsets[idx].y;
+        const relativeLeft = cellRect.left - boardRect.left + (cellRect.width / 2) - 12 + offsets[idx].x;
+        
+        tokenEl.style.top = `${relativeTop}px`;
+        tokenEl.style.left = `${relativeLeft}px`;
+    });
+}
 
-        window.addEventListener('resize', moveTokensToCells);
+function updateTurnUI() {
+    if(players.length === 0) return;
+    const cp = players[currentTurn];
+    document.getElementById('turnEmoji').innerText = cp.emoji;
+    document.getElementById('turnName').innerText = `${cp.name}의 차례`;
+    document.getElementById('turnName').style.color = cp.color;
+}
 
-        /* 🎡 룰렛 구현 파트 */
-        const canvas = document.getElementById("rouletteCanvas");
-        const ctx = canvas.getContext("2d");
-        let isRouletteSpinning = false;
+window.addEventListener('resize', moveTokensToCells);
 
-        window.drawRoulette = function() {
-            const itemsText = document.getElementById("rouletteItems").value;
-            const items = itemsText.split(",").map(item => item.trim()).filter(item => item !== "");
-            if (items.length === 0) return;
+/* 🎡 룰렛 구현 파트 */
+const canvas = document.getElementById("rouletteCanvas");
+const ctx = canvas.getContext("2d");
 
-            const numSegments = items.length;
-            const segmentAngle = (2 * Math.PI) / numSegments;
-            const radius = canvas.width / 2;
+window.drawRoulette = function() {
+    const itemsText = document.getElementById("rouletteItems").value;
+    const items = itemsText.split(",").map(item => item.trim()).filter(item => item !== "");
+    if (items.length === 0) return;
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            const colors = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#a855f7", "#ec4899", "#14b8a6"];
+    const numSegments = items.length;
+    const segmentAngle = (2 * Math.PI) / numSegments;
+    const radius = canvas.width / 2;
 
-            for (let i = 0; i < numSegments; i++) {
-                const startAngle = i * segmentAngle;
-                const endAngle = startAngle + segmentAngle;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const colors = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#a855f7", "#ec4899", "#14b8a6"];
 
-                ctx.beginPath();
-                ctx.moveTo(radius, radius);
-                ctx.arc(radius, radius, radius, startAngle, endAngle);
-                ctx.closePath();
-                ctx.fillStyle = colors[i % colors.length];
-                ctx.fill();
-                ctx.strokeStyle = "#1e293b";
-                ctx.lineWidth = 2;
-                ctx.stroke();
+    for (let i = 0; i < numSegments; i++) {
+        const startAngle = i * segmentAngle;
+        const endAngle = startAngle + segmentAngle;
 
-                ctx.save();
-                ctx.translate(radius, radius);
-                ctx.rotate(startAngle + segmentAngle / 2);
-                ctx.textAlign = "right";
-                ctx.textBaseline = "middle";
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 11px Noto Sans KR";
-                ctx.fillText(items[i], radius - 15, 0);
-                ctx.restore();
-            }
+        ctx.beginPath();
+        ctx.moveTo(radius, radius);
+        ctx.arc(radius, radius, radius, startAngle, endAngle);
+        ctx.closePath();
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.fill();
+        ctx.strokeStyle = "#1e293b";
+        ctx.lineWidth = 2;
+        ctx.stroke();
 
-            ctx.beginPath();
-            ctx.arc(radius, radius, 18, 0, 2 * Math.PI);
-            ctx.fillStyle = "#0f172a";
-            ctx.fill();
-            ctx.closePath();
-        };
+        ctx.save();
+        ctx.translate(radius, radius);
+        ctx.rotate(startAngle + segmentAngle / 2);
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 11px Noto Sans KR";
+        ctx.fillText(items[i], radius - 15, 0);
+        ctx.restore();
+    }
 
-        document.getElementById("rouletteItems").addEventListener("input", () => {
-            const txt = document.getElementById("rouletteItems").value;
-            update(gameRef, { "roulette/items": txt });
+    ctx.beginPath();
+    ctx.arc(radius, radius, 18, 0, 2 * Math.PI);
+    ctx.fillStyle = "#0f172a";
+    ctx.fill();
+    ctx.closePath();
+};
+
+document.getElementById("rouletteItems").addEventListener("input", () => {
+    const txt = document.getElementById("rouletteItems").value;
+    update(gameRef, { "roulette/items": txt });
+});
+
+window.spinRoulette = function() {
+    if (isRouletteSpinning) return;
+
+    const itemsText = document.getElementById("rouletteItems").value;
+    const items = itemsText.split(",").map(item => item.trim()).filter(item => item !== "");
+    if (items.length === 0) return;
+
+    isRouletteSpinning = true;
+    document.getElementById("spinBtn").disabled = true;
+
+    // 1. 회전 각도와 당첨 결과를 '미리' 계산합니다.
+    const addRotation = 1800 + Math.floor(Math.random() * 1800); 
+    const currentDeg = players.roulette?.deg || 0;
+    const finalRotation = currentDeg + addRotation; // 누적 각도 계산
+
+    const actualDegrees = finalRotation % 360;
+    const numSegments = items.length;
+    const segmentDegrees = 360 / numSegments;
+    // 핀 위치(상단 90도 부근) 기준 계산 고정
+    const winningIndex = Math.floor((360 - (actualDegrees - 90)) % 360 / segmentDegrees);
+    const resultText = items[(winningIndex + numSegments) % numSegments];
+
+    // 2. 계산된 큰 회전값을 먼저 DB에 쏴서 모든 화면에서 돌게 만듭니다.
+    update(gameRef, { 
+        "roulette/result": "음주 레이더 돌리는 중... 🍻",
+        "roulette/deg": finalRotation
+    });
+
+    // 3. 애니메이션 시간(4초)이 끝난 후 최종 텍스트만 업데이트합니다. (실제 각도는 그대로 둠)
+    setTimeout(() => {
+        update(gameRef, { 
+            "roulette/result": `🎉 결과: <strong>${resultText}</strong>`
         });
+        isRouletteSpinning = false;
+        document.getElementById("spinBtn").disabled = false;
+    }, 4000);
+};
 
-        window.spinRoulette = function() {
-            if (isRouletteSpinning) return;
-
-            const itemsText = document.getElementById("rouletteItems").value;
-            const items = itemsText.split(",").map(item => item.trim()).filter(item => item !== "");
-            if (items.length === 0) return;
-
-            isRouletteSpinning = true;
-            document.getElementById("spinBtn").disabled = true;
-            
-            update(gameRef, { "roulette/result": "음주 레이더 돌리는 중... 🍻" });
-
-            const randomRotation = 1800 + Math.floor(Math.random() * 1800);
-            update(gameRef, { "roulette/deg": randomRotation });
-
-            setTimeout(() => {
-                const actualDegrees = randomRotation % 360;
-                const numSegments = items.length;
-                const segmentDegrees = 360 / numSegments;
-                const winningIndex = Math.floor((360 - (actualDegrees - 90)) % 360 / segmentDegrees);
-                const resultText = items[(winningIndex + numSegments) % numSegments];
-
-                update(gameRef, { 
-                    "roulette/result": `🎉 결과: <strong>${resultText}</strong>`,
-                    "roulette/deg": actualDegrees
-                });
-                
-                isRouletteSpinning = false;
-                document.getElementById("spinBtn").disabled = false;
-            }, 4000);
-        };
-
-        window.toggleRouletteView = function(show) {
-            update(gameRef, { "roulette/show": show });
-        };
+window.toggleRouletteView = function(show) {
+    update(gameRef, { "roulette/show": show });
+};
     </script>
 </body>
 </html>
