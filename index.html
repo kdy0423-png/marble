@@ -643,53 +643,89 @@
         };
 
         window.rollDice = function() {
-            if (isLocalRolling) return;
-            
-            const btn = document.getElementById('rollBtn');
-            const diceEl = document.getElementById('diceResult');
-            
-            isLocalRolling = true;
-            btn.disabled = true;
-            diceEl.classList.add('dice-rolling');
+    // 1. 이미 굴러가는 중이면 작동 안 함
+    if (isLocalRolling) return;
+    
+    const btn = document.getElementById('rollBtn');
+    const diceEl = document.getElementById('diceResult');
+    
+    // 안전장치: 버튼이 존재하면 즉시 비활성화
+    if (btn) btn.disabled = true;
+    
+    isLocalRolling = true;
+    if (diceEl) diceEl.classList.add('dice-rolling');
 
-            let counter = 0;
-            const interval = setInterval(() => {
-                diceEl.innerText = `🎲 ${Math.floor(Math.random() * 6) + 1}`;
-                counter++;
+    let counter = 0;
+    const interval = setInterval(() => {
+        if (diceEl) diceEl.innerText = `🎲 ${Math.floor(Math.random() * 6) + 1}`;
+        counter++;
+        
+        // 주사위 굴리는 애니메이션 종료 시점 (약 0.7초 후)
+        if(counter > 12) { 
+            clearInterval(interval);
+            if (diceEl) diceEl.classList.remove('dice-rolling');
+            
+            try {
+                const dice = Math.floor(Math.random() * 6) + 1;
+                const player = players[currentTurn];
                 
-                if(counter > 12) { 
-                    clearInterval(interval);
-                    diceEl.classList.remove('dice-rolling');
-                    
-                    const dice = Math.floor(Math.random() * 6) + 1;
-                    const player = players[currentTurn];
-                    
-                    player.pos = (player.pos + dice) % boardData.length;
-                    const cellInfo = boardData[player.pos];
-                    let displayDesc = cellInfo.desc;
+                // 플레이어 위치 이동 계산
+                player.pos = (player.pos + dice) % boardData.length;
+                const cellInfo = boardData[player.pos];
+                let displayDesc = cellInfo.desc;
 
-                    if (cellInfo.type === 'key') {
-                        displayDesc = goldKeys[Math.floor(Math.random() * goldKeys.length)];
+                // 황금열쇠 처리
+                if (cellInfo.type === 'key') {
+                    displayDesc = goldKeys[Math.floor(Math.random() * goldKeys.length)];
+                }
+
+                const finalDesc = `<strong style="color:${player.color}">${player.name}</strong>님이 <strong style="color:#ffffff;">[${cellInfo.title}]</strong>에 도착!<br>${displayDesc}`;
+                const nextTurn = (currentTurn + 1) % players.length;
+
+                // 룰렛 아이템 텍스트 안전하게 가져오기
+                const rouletteItemsInput = document.getElementById("rouletteItems");
+                const currentItems = rouletteItemsInput ? rouletteItemsInput.value : "마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷";
+
+                // 돌림판 칸에 걸렸는지 판별
+                const isRouletteCell = (cellInfo.title === "돌려돌려 돌림판");
+
+                // Firebase 전송 데이터 구성 (구조가 깨지지 않도록 모든 필드 고정)
+                const updateData = {
+                    players: players,
+                    currentTurn: nextTurn,
+                    lastDice: `🎲 ${dice}`,
+                    lastDesc: finalDesc,
+                    roulette: {
+                        items: currentItems,
+                        result: "결과 대기 중",
+                        show: isRouletteCell,
+                        deg: 0
                     }
+                };
 
-                    const finalDesc = `<strong style="color:${player.color}">${player.name}</strong>님이 <strong style="color:#ffffff;">[${cellInfo.title}]</strong>에 도착!<br>${displayDesc}`;
-                    const nextTurn = (currentTurn + 1) % players.length;
+                // Firebase 업로드
+                update(gameRef, updateData)
+                    .then(() => {
+                        // 성공 시 잠금 해제
+                        isLocalRolling = false;
+                        if (btn) btn.disabled = false;
+                    })
+                    .catch((error) => {
+                        console.error("Firebase 서버 업로드 실패:", error);
+                        // 서버 오류가 나도 다음 주사위는 굴릴 수 있게 강제 해제
+                        isLocalRolling = false;
+                        if (btn) btn.disabled = false;
+                    });
 
-                    const rouletteItemsInput = document.getElementById("rouletteItems");
-                    const currentItems = rouletteItemsInput ? rouletteItemsInput.value : "마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷";
-
-                    const updateData = {
-                        players: players,
-                        currentTurn: nextTurn,
-                        lastDice: `🎲 ${dice}`,
-                        lastDesc: finalDesc,
-                        roulette: {
-                            items: currentItems,
-                            result: "결과 대기 중",
-                            show: cellInfo.title === "돌려돌려 돌림판",
-                            deg: 0
-                        }
-                    };
+            } catch (jsError) {
+                // 코드 내부 연산 에러가 발생해도 버튼은 무조건 살려냄
+                console.error("자바스크립트 연산 에러 발생:", jsError);
+                isLocalRolling = false;
+                if (btn) btn.disabled = false;
+            }
+        }
+    }, 60);
+};
 
                     update(gameRef, updateData)
                         .then(() => {
