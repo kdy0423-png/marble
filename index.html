@@ -475,14 +475,14 @@
         import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
-            apiKey: "AIzaSyAOHlSfAOOcokGsTVftAgP8_qaLzCBKVMM",
-            authDomain: "marble-9a65f.firebaseapp.com",
-            databaseURL: "https://marble-9a65f-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "marble-9a65f",
-            storageBucket: "marble-9a65f.firebasestorage.app",
-            messagingSenderId: "116772875499",
-            appId: "1:116772875499:web:419ef939fe749ef172e2ae"
-        };
+    apiKey: "AIzaSyAOHlSfAOOcokGsTVftAgP8_qaLzCBKVMM",
+    authDomain: "marble-9a65f.firebaseapp.com",
+    databaseURL: "https://marble-9a65f-default-rtdb.firebaseio.com", //  이 주소로 수정!
+    projectId: "marble-9a65f",
+    storageBucket: "marble-9a65f.firebasestorage.app",
+    messagingSenderId: "116772875499",
+    appId: "1:116772875499:web:419ef939fe749ef172e2ae"
+};
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
