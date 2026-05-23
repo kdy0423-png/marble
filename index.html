@@ -531,7 +531,6 @@
             "[원샷 지정권] 제일 얄미운 새끼 하나 골라서 즉시 한 잔 먹여라."
         ];
 
-        // 28칸 전용 레이아웃 생성
         const cellsLayout = [];
         for (let c = 10; c >= 1; c--) cellsLayout.push({ c: c, r: 6 });
         for (let r = 5; r >= 2; r--) cellsLayout.push({ c: 1, r: r });
@@ -561,10 +560,8 @@
         onValue(gameRef, (snapshot) => {
             const data = snapshot.val();
             
-            // [★ 핵심 에러 해결 포인트]: 방 데이터가 삭제(null)되었을 때 에러 방지 구문 배치
             if (!data) {
                 document.getElementById('setupModal').style.display = 'flex';
-                // 화면의 토큰 숨기기 및 기본 텍스트 세팅
                 for(let i=1; i<=4; i++) {
                     const tEl = document.getElementById(`token-${i}`);
                     if(tEl) tEl.style.display = 'none';
@@ -576,7 +573,7 @@
                 }
                 const rollBtnEl = document.getElementById('rollBtn');
                 if(rollBtnEl) rollBtnEl.disabled = true;
-                return; // 아래쪽 코드를 타지 않고 즉시 중단(안전 차단막)
+                return;
             }
 
             document.getElementById('setupModal').style.display = 'none';
@@ -596,7 +593,8 @@
             }
             
             if (data.roulette) {
-                if (document.getElementById("rouletteItems")) document.getElementById("rouletteItems").value = data.roulette.items || "";
+                const rouletteItemsInput = document.getElementById("rouletteItems");
+                if (rouletteItemsInput) rouletteItemsInput.value = data.roulette.items || "마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷";
                 if (document.getElementById("rouletteResult")) document.getElementById("rouletteResult").innerHTML = data.roulette.result || "결과 대기 중";
                 
                 if(data.roulette.deg !== undefined && document.getElementById("rouletteCanvas")) {
