@@ -1,4 +1,804 @@
-<script type="module">
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE ALUMNI MARBLE (Realtime Multiplayer)</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAA=">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+    :root {
+        --bg-top: #5b8cff;
+        --bg-mid: #7b5cff;
+        --bg-bottom: #4c35c7;
+
+        --panel-dark: #1d2343;
+        --panel-mid: #2b3464;
+        --panel-light: #3a4686;
+
+        --card: #eef4ff;
+        --card-2: #dfe9ff;
+        --line: rgba(255,255,255,0.18);
+
+        --text-main: #ffffff;
+        --text-dark: #1d2a57;
+        --text-soft: #d8e4ff;
+        --text-dim: #9fb2e8;
+
+        --accent-red: #ff5d7a;
+        --accent-blue: #4da3ff;
+        --accent-gold: #ffcc4d;
+        --accent-green: #36d98b;
+        --accent-purple: #b972ff;
+        --accent-orange: #ff9f43;
+
+        --shadow-main: 0 18px 40px rgba(28, 29, 88, 0.35);
+        --shadow-card: 0 8px 18px rgba(17, 28, 68, 0.18);
+        --shadow-btn: 0 10px 20px rgba(0,0,0,0.22);
+    }
+
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    html, body {
+        min-height: 100%;
+    }
+
+    body {
+        font-family: 'Noto Sans KR', sans-serif;
+        color: var(--text-main);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        padding: 18px;
+        overflow: auto;
+        background:
+            radial-gradient(circle at 20% 20%, rgba(255,255,255,0.12), transparent 18%),
+            radial-gradient(circle at 80% 15%, rgba(255,255,255,0.10), transparent 20%),
+            radial-gradient(circle at 50% 100%, rgba(255,255,255,0.08), transparent 25%),
+            linear-gradient(180deg, var(--bg-top) 0%, var(--bg-mid) 45%, var(--bg-bottom) 100%);
+        position: relative;
+    }
+
+    body::before,
+    body::after {
+        content: "";
+        position: fixed;
+        width: 280px;
+        height: 280px;
+        border-radius: 50%;
+        filter: blur(70px);
+        opacity: 0.28;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    body::before {
+        top: 30px;
+        left: 10px;
+        background: #6ee7ff;
+    }
+
+    body::after {
+        right: 10px;
+        bottom: 20px;
+        background: #ff9de6;
+    }
+
+    .board-container {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: repeat(10, 115px);
+        grid-template-rows: repeat(6, 105px);
+        gap: 8px;
+        padding: 18px;
+        border-radius: 34px;
+        background: linear-gradient(180deg, #5e74ff 0%, #4d5fe0 100%);
+        border: 4px solid rgba(255,255,255,0.18);
+        box-shadow:
+            inset 0 4px 0 rgba(255,255,255,0.16),
+            0 24px 60px rgba(22, 28, 95, 0.34);
+        overflow: visible;
+    }
+
+    .board-container::before {
+        content: "";
+        position: absolute;
+        inset: 10px;
+        border-radius: 26px;
+        border: 2px dashed rgba(255,255,255,0.14);
+        pointer-events: none;
+    }
+
+    .cell {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 8px;
+        border-radius: 18px;
+        background: linear-gradient(180deg, #f8fbff 0%, #deebff 100%);
+        border: 3px solid rgba(255,255,255,0.65);
+        box-shadow:
+            inset 0 3px 0 rgba(255,255,255,0.75),
+            0 8px 0 rgba(70, 92, 173, 0.95),
+            0 12px 22px rgba(24, 42, 108, 0.18);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+        overflow: hidden;
+    }
+
+    .cell:hover {
+        transform: translateY(-4px);
+        box-shadow:
+            inset 0 3px 0 rgba(255,255,255,0.75),
+            0 10px 0 rgba(70, 92, 173, 0.95),
+            0 16px 28px rgba(24, 42, 108, 0.24);
+    }
+
+    .cell::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(255,255,255,0.35), transparent 38%);
+        pointer-events: none;
+    }
+
+    .cell.start {
+        background: linear-gradient(180deg, #4cffb4 0%, #19c780 100%);
+        border-color: rgba(255,255,255,0.75);
+        box-shadow:
+            inset 0 3px 0 rgba(255,255,255,0.55),
+            0 8px 0 rgba(7, 131, 86, 0.95),
+            0 12px 24px rgba(9, 133, 83, 0.25);
+    }
+
+    .cell.corner {
+        background: linear-gradient(180deg, #ff8c97 0%, #ff6179 100%);
+        border-color: rgba(255,255,255,0.75);
+        box-shadow:
+            inset 0 3px 0 rgba(255,255,255,0.55),
+            0 8px 0 rgba(185, 38, 73, 0.95),
+            0 12px 24px rgba(185, 38, 73, 0.22);
+    }
+
+    .cell.save {
+        background: linear-gradient(180deg, #83f3bf 0%, #39d98a 100%);
+        border-color: rgba(255,255,255,0.75);
+        box-shadow:
+            inset 0 3px 0 rgba(255,255,255,0.55),
+            0 8px 0 rgba(12, 145, 89, 0.95),
+            0 12px 24px rgba(12, 145, 89, 0.22);
+    }
+
+    .cell.key {
+        background: linear-gradient(180deg, #fff5c1 0%, #ffe07a 100%);
+        border-color: rgba(255,255,255,0.78);
+        box-shadow:
+            inset 0 3px 0 rgba(255,255,255,0.7),
+            0 8px 0 rgba(196, 135, 15, 0.95),
+            0 12px 24px rgba(214, 154, 25, 0.25);
+    }
+
+    .cell-num {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.7px;
+        color: rgba(27, 45, 98, 0.65);
+    }
+
+    .cell.start .cell-num,
+    .cell.corner .cell-num,
+    .cell.save .cell-num,
+    .cell.key .cell-num {
+        color: rgba(31, 36, 67, 0.65);
+    }
+
+    .cell-title {
+        font-size: 13px;
+        font-weight: 800;
+        color: #20325f;
+        text-align: center;
+        line-height: 1.28;
+        text-shadow: 0 1px 0 rgba(255,255,255,0.55);
+    }
+
+    .cell.start .cell-title,
+    .cell.corner .cell-title,
+    .cell.save .cell-title,
+    .cell.key .cell-title {
+        color: #1d274d;
+    }
+
+    .token-area {
+        min-height: 25px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .token {
+        position: absolute;
+        z-index: 20;
+        font-size: 26px;
+        cursor: pointer;
+        transition: all 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+        filter: drop-shadow(0 6px 8px rgba(0,0,0,0.28));
+        animation: tokenBounce 1.9s ease-in-out infinite;
+    }
+
+    @keyframes tokenBounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-5px); }
+    }
+
+    .token::after {
+        content: attr(data-name);
+        position: absolute;
+        bottom: 31px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(180deg, #25305f 0%, #1b2346 100%);
+        color: #fff;
+        padding: 5px 9px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 700;
+        white-space: nowrap;
+        opacity: 0;
+        transition: opacity 0.18s ease, transform 0.18s ease;
+        pointer-events: none;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.24);
+        border: 2px solid rgba(255,255,255,0.1);
+    }
+
+    .token:hover::after {
+        opacity: 1;
+        transform: translateX(-50%) translateY(-4px);
+    }
+
+    .center-panel {
+        grid-column: 2 / 10;
+        grid-row: 2 / 6;
+        position: relative;
+        z-index: 5;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 24px 22px;
+        text-align: center;
+        border-radius: 28px;
+        background: linear-gradient(180deg, #2d3a77 0%, #202b5b 100%);
+        border: 4px solid rgba(255,255,255,0.12);
+        box-shadow:
+            inset 0 4px 0 rgba(255,255,255,0.08),
+            0 18px 36px rgba(18, 23, 77, 0.32);
+        overflow: hidden;
+    }
+
+    .center-panel::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+            radial-gradient(circle at 50% 0%, rgba(255,255,255,0.14), transparent 35%),
+            radial-gradient(circle at 0% 100%, rgba(77,163,255,0.16), transparent 30%),
+            radial-gradient(circle at 100% 100%, rgba(185,114,255,0.14), transparent 28%);
+        pointer-events: none;
+    }
+
+    .game-title {
+        position: relative;
+        z-index: 1;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 30px;
+        font-weight: 700;
+        letter-spacing: 2px;
+        color: #fff;
+        margin-bottom: 4px;
+        text-shadow:
+            0 3px 0 rgba(25, 40, 91, 0.85),
+            0 8px 18px rgba(0,0,0,0.22);
+    }
+
+    .game-subtitle {
+        position: relative;
+        z-index: 1;
+        font-size: 12px;
+        font-weight: 700;
+        color: #cdddff;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        margin-bottom: 14px;
+    }
+
+    .turn-indicator {
+        position: relative;
+        z-index: 1;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+        padding: 9px 16px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #41529e 0%, #314184 100%);
+        border: 3px solid rgba(255,255,255,0.12);
+        box-shadow:
+            inset 0 2px 0 rgba(255,255,255,0.1),
+            0 8px 16px rgba(18, 23, 77, 0.2);
+        font-size: 13px;
+        font-weight: 800;
+    }
+
+    .panel-content-wrapper {
+        width: 100%;
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+        z-index: 1;
+    }
+
+    .main-game-view {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .log-box {
+        min-height: 98px;
+        margin-bottom: 18px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .dice-val {
+        display: inline-block;
+        font-size: 52px;
+        margin-bottom: 2px;
+        text-shadow: 0 6px 16px rgba(0,0,0,0.18);
+    }
+
+    .dice-rolling {
+        animation: roll 0.15s infinite linear;
+    }
+
+    @keyframes roll {
+        0% { transform: translateY(0) rotate(0deg) scale(1.05); }
+        50% { transform: translateY(-10px) rotate(180deg) scale(1.18); }
+        100% { transform: translateY(0) rotate(360deg) scale(1.05); }
+    }
+
+    .penalty-text {
+        max-width: 650px;
+        padding: 14px 18px;
+        border-radius: 22px;
+        background: linear-gradient(180deg, #40519d 0%, #334489 100%);
+        border: 3px solid rgba(255,255,255,0.1);
+        box-shadow:
+            inset 0 2px 0 rgba(255,255,255,0.08),
+            0 8px 18px rgba(17, 24, 74, 0.18);
+        font-size: 15px;
+        line-height: 1.6;
+        color: #f0f5ff;
+    }
+
+    .penalty-text strong {
+        color: #fff;
+    }
+
+    .control-btns {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .roll-button,
+    .util-button,
+    .btn-spin,
+    .btn-close-roulette,
+    .start-game-btn {
+        border: none;
+        color: #fff;
+        font-weight: 800;
+        cursor: pointer;
+        transition: transform 0.14s ease, box-shadow 0.14s ease, opacity 0.14s ease;
+        box-shadow: var(--shadow-btn);
+    }
+
+    .roll-button:hover,
+    .util-button:hover,
+    .btn-spin:hover,
+    .btn-close-roulette:hover,
+    .start-game-btn:hover {
+        transform: translateY(-2px);
+    }
+
+    .roll-button:active,
+    .util-button:active,
+    .btn-spin:active,
+    .btn-close-roulette:active,
+    .start-game-btn:active {
+        transform: translateY(1px);
+    }
+
+    .roll-button {
+        padding: 14px 42px;
+        font-size: 17px;
+        border-radius: 18px;
+        background: linear-gradient(180deg, #ff7992 0%, #ff4f70 100%);
+        box-shadow:
+            inset 0 3px 0 rgba(255,255,255,0.28),
+            0 7px 0 #c73459,
+            0 14px 24px rgba(199, 52, 89, 0.26);
+    }
+
+    .roll-button:disabled {
+        background: linear-gradient(180deg, #818cb4 0%, #66739c 100%);
+        box-shadow:
+            inset 0 3px 0 rgba(255,255,255,0.16),
+            0 7px 0 #4f5a80;
+        cursor: not-allowed;
+        opacity: 0.75;
+    }
+
+    .util-button {
+        padding: 14px 24px;
+        font-size: 16px;
+        border-radius: 18px;
+        background: linear-gradient(180deg, #69beff 0%, #489cff 100%);
+        box-shadow:
+            inset 0 3px 0 rgba(255,255,255,0.28),
+            0 7px 0 #2377d8,
+            0 14px 24px rgba(35, 119, 216, 0.26);
+    }
+
+    /* 룰렛 UI */
+    .roulette-view {
+        display: none;
+        width: 100%;
+        height: 100%;
+        grid-template-columns: 1.15fr 1fr;
+        gap: 22px;
+        align-items: center;
+        text-align: left;
+    }
+
+    .roulette-container {
+        position: relative;
+        width: 250px;
+        height: 250px;
+        margin: 0 auto;
+    }
+
+    .roulette-pin {
+        position: absolute;
+        top: -13px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 14px solid transparent;
+        border-right: 14px solid transparent;
+        border-top: 24px solid var(--accent-red);
+        z-index: 30;
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.28));
+    }
+
+    #rouletteCanvas {
+        border-radius: 50%;
+        background: rgba(255,255,255,0.1);
+        box-shadow:
+            inset 0 3px 0 rgba(255,255,255,0.1),
+            0 0 0 8px rgba(255,255,255,0.08),
+            0 18px 30px rgba(16, 21, 71, 0.22);
+        transition: transform 4s cubic-bezier(0.1, 0.8, 0.1, 1);
+    }
+
+    .roulette-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        justify-content: center;
+        height: 100%;
+    }
+
+    .roulette-controls label {
+        font-size: 12px;
+        font-weight: 800;
+        color: #d7e4ff;
+    }
+
+    .roulette-controls textarea {
+        width: 100%;
+        height: 72px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        resize: none;
+        outline: none;
+        font-size: 12px;
+        color: #fff;
+        background: linear-gradient(180deg, #3e4f9e 0%, #324286 100%);
+        border: 3px solid rgba(255,255,255,0.12);
+        box-shadow: inset 0 2px 0 rgba(255,255,255,0.06);
+    }
+
+    .roulette-controls textarea:focus {
+        border-color: rgba(255,255,255,0.22);
+    }
+
+    .roulette-btn-group {
+        display: flex;
+        gap: 8px;
+    }
+
+    .btn-spin {
+        flex: 1;
+        padding: 12px 10px;
+        font-size: 14px;
+        border-radius: 16px;
+        color: #3b2400;
+        background: linear-gradient(180deg, #ffd96e 0%, #ffbd3c 100%);
+        box-shadow:
+            inset 0 3px 0 rgba(255,255,255,0.35),
+            0 5px 0 #c68a13,
+            0 10px 18px rgba(198, 138, 19, 0.25);
+    }
+    .btn-spin:disabled {
+        background: linear-gradient(180deg, #818cb4 0%, #66739c 100%);
+        box-shadow: inset 0 3px 0 rgba(255,255,255,0.16), 0 5px 0 #4f5a80;
+        cursor: not-allowed;
+        opacity: 0.75;
+        color: #fff;
+    }
+
+    .btn-close-roulette {
+        padding: 12px 18px;
+        font-size: 14px;
+        border-radius: 16px;
+        background: linear-gradient(180deg, #5162a6 0%, #3b4a85 100%);
+        box-shadow:
+            inset 0 3px 0 rgba(255,255,255,0.18),
+            0 5px 0 #232d5c,
+            0 10px 18px rgba(35, 45, 92, 0.22);
+    }
+
+    #rouletteResult {
+        font-size: 14px;
+        font-weight: 800;
+        color: #ffd96e;
+        text-align: center;
+        min-height: 42px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 12px;
+        border-radius: 14px;
+        background: rgba(0, 0, 0, 0.18);
+        border: 2px solid rgba(255,255,255,0.06);
+    }
+
+    /* 방 리셋 버튼 */
+    .reset-room-btn {
+        position: absolute;
+        top: 18px;
+        right: 18px;
+        background: rgba(0, 0, 0, 0.2);
+        border: 2px solid rgba(255,255,255,0.12);
+        color: #cdddff;
+        padding: 6px 14px;
+        font-size: 11px;
+        font-weight: 700;
+        border-radius: 999px;
+        cursor: pointer;
+        transition: all 0.14s ease;
+    }
+
+    .reset-room-btn:hover {
+        background-color: rgba(255,255,255,0.1);
+        color: #fff;
+        border-color: rgba(255,255,255,0.2);
+    }
+
+    /* 설정 모달 */
+    .setup-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(20, 27, 61, 0.94);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 100;
+        backdrop-filter: blur(8px);
+    }
+
+    .setup-content {
+        background: linear-gradient(180deg, #2d3a77 0%, #202b5b 100%);
+        padding: 42px 36px;
+        border-radius: 32px;
+        border: 4px solid rgba(255,255,255,0.12);
+        width: 520px;
+        max-width: 92%;
+        box-shadow: 0 30px 70px rgba(12, 16, 46, 0.45);
+    }
+
+    .setup-content h2 {
+        margin-bottom: 24px;
+        text-align: center;
+        color: #fff;
+        font-size: 24px;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .player-input-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .player-input-row input,
+    .player-input-row select {
+        padding: 12px 14px;
+        border-radius: 16px;
+        outline: none;
+        font-size: 14px;
+        font-weight: 700;
+        color: #fff;
+        background: linear-gradient(180deg, #3e4f9e 0%, #324286 100%);
+        border: 3px solid rgba(255,255,255,0.12);
+        box-shadow: inset 0 2px 0 rgba(255,255,255,0.06);
+        transition: border-color 0.14s ease;
+    }
+
+    .player-input-row input:focus,
+    .player-input-row select:focus {
+        border-color: rgba(255,255,255,0.25);
+    }
+
+    .player-input-row input {
+        flex: 1;
+    }
+
+    .player-input-row select {
+        width: 140px;
+        cursor: pointer;
+    }
+
+    .start-game-btn {
+        width: 100%;
+        padding: 16px;
+        font-size: 18px;
+        border-radius: 18px;
+        margin-top: 10px;
+        background: linear-gradient(180deg, #4cffb4 0%, #11cb7e 100%);
+        box-shadow:
+            inset 0 3px 0 rgba(255,255,255,0.35),
+            0 7px 0 #07965c,
+            0 14px 24px rgba(7, 150, 92, 0.26);
+    }
+    </style>
+
+</head>
+<body>
+
+    <div class="setup-modal" id="setupModal" style="display:none;">
+        <div class="setup-content">
+            <h2>👥 친구들 이름 및 말 등록</h2>
+            <div style="text-align: center; font-size: 12px; color: #94a3b8; margin-bottom: 15px;">
+                🚨 한 명만 등록하면 실시간으로 전원 자동 시작됩니다!
+            </div>
+            <div id="inputsContainer">
+                <div class="player-input-row">
+                    <span style="font-weight:bold; color:#ef4444; width:50px;">P1</span>
+                    <input type="text" id="p1-name" value="김알코올">
+                    <select id="p1-emoji">
+                        <option value="🐋">🐋 술고래</option>
+                        <option value="🐓">🐓 꽐라치킨</option>
+                        <option value="🍾">🍾 소주병</option>
+                        <option value="🦮">🦮 만취댕댕이</option>
+                        <option value="🤮">🤮 토쟁이</option>
+                    </select>
+                </div>
+                <div class="player-input-row">
+                    <span style="font-weight:bold; color:#3b82f6; width:50px;">P2</span>
+                    <input type="text" id="p2-name" value="이만취">
+                    <select id="p2-emoji">
+                        <option value="🐓">🐓 꽐라치킨</option>
+                        <option value="🐋">🐋 술고래</option>
+                        <option value="🍾">🍾 소주병</option>
+                        <option value="🦮">🦮 만취댕댕이</option>
+                    </select>
+                </div>
+                <div class="player-input-row">
+                    <span style="font-weight:bold; color:#10b981; width:50px;">P3</span>
+                    <input type="text" id="p3-name" value="최술고래">
+                    <select id="p3-emoji">
+                        <option value="🍾">🍾 소주병</option>
+                        <option value="🐋">🐋 술고래</option>
+                        <option value="🐓">🐓 꽐라치킨</option>
+                    </select>
+                </div>
+                <div class="player-input-row">
+                    <span style="font-weight:bold; color:#a855f7; width:50px;">P4</span>
+                    <input type="text" id="p4-name" value="박꽐라">
+                    <select id="p4-emoji">
+                        <option value="🦮">🦮 만취댕댕이</option>
+                        <option value="🐋">🐋 술고래</option>
+                        <option value="🍾">🍾 소주병</option>
+                    </select>
+                </div>
+            </div>
+            <button class="start-game-btn" onclick="startGame()">주루마블 개장하기 🍺</button>
+        </div>
+    </div>
+
+    <div class="board-container" id="gameBoard">
+        <div id="token-1" class="token" style="display:none;"></div>
+        <div id="token-2" class="token" style="display:none;"></div>
+        <div id="token-3" class="token" style="display:none;"></div>
+        <div id="token-4" class="token" style="display:none;"></div>
+
+        <div class="center-panel">
+            <button class="reset-room-btn" onclick="resetRoom()">방 초기화 🔄</button>
+            <div class="game-title">THE ALUMNI MARBLE</div>
+            <div class="game-subtitle">실시간 멀티플레이 주루마블</div>
+            
+            <div class="turn-indicator">
+                <span id="turnEmoji" style="font-size: 18px;">🎲</span>
+                <span id="turnName" style="color:#ef4444;">데이터 연결 중...</span>
+            </div>
+
+            <div class="panel-content-wrapper">
+                <div class="main-game-view" id="mainGameView">
+                    <div class="log-box">
+                        <div id="diceResult" class="dice-val">🎲</div>
+                        <div id="penaltyDesc" class="penalty-text">서버와 통신을 시작합니다.</div>
+                    </div>
+                    <div class="control-btns">
+                        <button class="roll-button" id="rollBtn" onclick="rollDice()" disabled>주사위 굴리기</button>
+                        <button class="util-button" id="openRouletteBtn" onclick="toggleRouletteView(true)">🎡 룰렛</button>
+                    </div>
+                </div>
+
+                <div class="roulette-view" id="rouletteView">
+                    <div class="roulette-container">
+                        <div class="roulette-pin"></div>
+                        <canvas id="rouletteCanvas" width="240" height="240"></canvas>
+                    </div>
+                    <div class="roulette-controls">
+                        <label for="rouletteItems">📋 칸 내용 (쉼표 구분)</label>
+                        <textarea id="rouletteItems">마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷</textarea>
+                        <div id="rouletteResult">결과 대기 중</div>
+                        <div class="roulette-btn-group">
+                            <button class="btn-spin" id="spinBtn" onclick="spinRoulette()">돌리기!</button>
+                            <button class="btn-close-roulette" onclick="toggleRouletteView(false)">닫기</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
@@ -445,3 +1245,5 @@
             update(gameRef, { "roulette/show": show });
         };
     </script>
+</body>
+</html>
