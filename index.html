@@ -848,6 +848,10 @@
         ];
 
         const goldKeys = [
+            "[PASS] 다음 사람 주사위 굴려",
+            "[PASS] 다음 사람 주사위 굴려",
+            "[PASS] 다음 사람 주사위 굴려",
+            "[PASS] 다음 사람 주사위 굴려",
             "[한 잔 쉴드] 한 잔 쉴드권 획득!.",
             "[한 잔 먹기] 맥주 또는 소주 한 잔 먹기.",
             "[너 술 잘 먹는다] 적립술 먹기",
@@ -856,6 +860,8 @@
             "[너희 마셔] 디코 기준 양 옆 사람이 술 먹기.",
             "[의리 파괴자] 오른쪽 사람 잔에 원하는 만큼 술 채우기.",
             "[반사 거울] 아무 벌칙이나 한 번 반사할 수 있는 방어권 (1턴 유효)",
+            "[팔굽혀펴기] 팔굽혀펴기 5회 실시",
+            "[스쿼트] 스쿼트 10회 실시",
             "[원샷 지정권] 제일 얄미운 새끼 하나 골라서 즉시 한 잔 먹여라."
         ];
 
@@ -884,8 +890,11 @@
         let currentTurn = 0;
         let isLocalRolling = false; 
         let isRouletteSpinning = false;
+        
+        // 시간 제어를 위한 변수
+        let lastRollTime = 0;
+        let cooldownInterval = null;
 
-        // ★ 핵심 변경: 화면 렌더링은 isLocalRolling의 영향을 받지 않고, 파이어베이스 데이터 기준으로 '무조건' 그림
         onValue(gameRef, (snapshot) => {
             const data = snapshot.val();
             
@@ -901,7 +910,10 @@
                     turnNameEl.style.color = "#ef4444";
                 }
                 const rollBtnEl = document.getElementById('rollBtn');
-                if(rollBtnEl) rollBtnEl.disabled = true;
+                if(rollBtnEl) {
+                    rollBtnEl.disabled = true;
+                    rollBtnEl.innerText = "주사위 굴리기";
+                }
                 return;
             }
 
@@ -909,18 +921,15 @@
             
             players = data.players || [];
             currentTurn = data.currentTurn !== undefined ? parseInt(data.currentTurn, 10) : 0;
+            lastRollTime = data.lastRollTime || 0; // 서버에 저장된 마지막 투척 시간 로드
             
             const diceEl = document.getElementById('diceResult');
-            const btnEl = document.getElementById('rollBtn');
             
-            // 주사위 텍스트와 로그 문구 렌더링 무조건 동기화
             if (diceEl) diceEl.innerText = data.lastDice || "🎲";
             if (document.getElementById('penaltyDesc')) document.getElementById('penaltyDesc').innerHTML = data.lastDesc || "주사위를 돌려주세요!";
             
-            // 버튼 비활성화 여부만 주사위를 굴리는 로컬 상태에 따라 제어
-            if (btnEl) {
-                btnEl.disabled = isLocalRolling;
-            }
+            // 쿨타임 타이머 관리 시작
+            startCooldownTimer();
             
             if (data.roulette) {
                 const rouletteItemsInput = document.getElementById("rouletteItems");
@@ -954,11 +963,42 @@
                 }
             });
 
-            // 데이터가 오면 언제나 말 위치와 턴 UI를 최신화시킴
             moveTokensToCells();
             updateTurnUI();
             drawRoulette();
         });
+
+        // 1분 제한 실시간 타이머 함수
+        function startCooldownTimer() {
+            if (cooldownInterval) clearInterval(cooldownInterval);
+
+            const btnEl = document.getElementById('rollBtn');
+            if (!btnEl) return;
+
+            cooldownInterval = setInterval(() => {
+                const now = Date.now();
+                const timePassed = now - lastRollTime;
+                const timeLeft = 60000 - timePassed; // 60초(60000ms) 기준 계산
+
+                if (isLocalRolling) {
+                    // 주사위가 현재 굴러가는 애니메이션 중일 때
+                    btnEl.disabled = true;
+                    return;
+                }
+
+                if (timeLeft > 0 && lastRollTime > 0) {
+                    // 1분이 지나지 않은 경우 버튼 잠금 및 남은 시간 표시
+                    const secondsLeft = Math.ceil(timeLeft / 1000);
+                    btnEl.disabled = true;
+                    btnEl.innerText = `⏳ [${secondsLeft}초 대기]`;
+                } else {
+                    // 1분이 지났거나 처음 시작한 경우 활성화
+                    btnEl.disabled = false;
+                    btnEl.innerText = "주사위 굴리기";
+                    clearInterval(cooldownInterval);
+                }
+            }, 200);
+        }
 
         window.startGame = function() {
             const initialPlayers = [
@@ -973,6 +1013,7 @@
                 currentTurn: 0,
                 lastDice: "🎲",
                 lastDesc: "주루마블 오픈! 주사위를 던지세요.",
+                lastRollTime: 0, // 초기화 시 타임스탬프 0
                 roulette: {
                     items: "마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷",
                     result: "결과 대기 중",
@@ -984,12 +1025,20 @@
 
         window.resetRoom = function() {
             if(confirm("정말 방을 초기화하고 처음 대기실 상태로 돌리시겠습니까?")) {
+                if (cooldownInterval) clearInterval(cooldownInterval);
                 set(gameRef, null);
             }
         };
 
         window.rollDice = function() {
             if (isLocalRolling) return;
+            
+            // 더블 체크: 서버 시간 기준으로도 1분이 안 지났으면 굴리기 거부
+            if (Date.now() - lastRollTime < 60000 && lastRollTime > 0) {
+                alert("아직 벌칙 수행 중이거나 마시는 중입니다! 1분 턴 제한을 기다려주세요.");
+                return;
+            }
+
             currentTurn = parseInt(currentTurn, 10);
             if (!players || players.length === 0 || !players[currentTurn]) return;
             
@@ -1030,7 +1079,6 @@
                         const rouletteItemsInput = document.getElementById("rouletteItems");
                         const currentItems = rouletteItemsInput ? rouletteItemsInput.value : "마시기, 원샷, 패스, 양옆 마시기, 흑기사, 다같이 원샷";
 
-                        // 데이터 업데이트 준비
                         players[currentTurn].pos = nextPos;
 
                         const updateData = {
@@ -1038,6 +1086,7 @@
                             currentTurn: parseInt(nextTurn, 10),
                             lastDice: `🎲 ${dice}`,
                             lastDesc: finalDesc,
+                            lastRollTime: Date.now(), // 주사위 굴리기가 완료된 '현재 시점'의 타임스탬프 서버 기록
                             roulette: {
                                 items: currentItems,
                                 result: "결과 대기 중",
@@ -1046,12 +1095,10 @@
                             }
                         };
 
-                        // 파이어베이스 데이터 업로드
                         set(gameRef, updateData)
                             .then(() => {
-                                // ★ 업로드가 완전히 마무리되면 락을 풀어 버튼 상태만 활성화 복귀시킴
                                 isLocalRolling = false;
-                                if (btn) btn.disabled = false;
+                                // 버튼 상태는 상단의 onValue 내부 startCooldownTimer 가 주기적으로 통제함
                             })
                             .catch((error) => {
                                 console.error("Firebase 업데이트 실패:", error);
